@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as sugar from 'sugar';
 import * as sqlite from 'sqlite';
 import { CommandoClient, CommandoClientOptions, FriendlyError, SQLiteProvider } from 'discord.js-commando';
+import { Command, CommandMessage } from 'discord.js-commando';
 import * as schedule from 'node-schedule';
 import { User, TextChannel } from 'discord.js';
 import { embedRecent } from './util/mapster';
@@ -40,19 +41,23 @@ export type MapsterOptions = CommandoClientOptions & {
 };
 
 export class MapsterBot extends CommandoClient {
+    log: winston.LoggerInstance;
+
     constructor(options?: MapsterOptions) {
         options.disableEveryone = true,
         options.unknownCommandResponse = false,
         super(options);
+
+        this.log = logger;
 
         this.on('error', logger.error);
         this.on('warn', logger.warn);
         this.on('debug', logger.debug);
         this.on('ready', () => {
             winston.info(`Logged in as ${this.user.tag} (${this.user.id})`);
-            // this.user.setActivity('github.com SC2Mapster/discord-bot', {
-            //     type: 'LISTENING',
-            // });
+            this.user.setActivity('!help', {
+                type: 'LISTENING',
+            });
         })
         this.on('disconnect', () => logger.warn('Disconnected!'))
         this.on('reconnect', () => logger.warn('Reconnecting...'))
@@ -104,5 +109,16 @@ export class MapsterBot extends CommandoClient {
 
             this.settings.set('mapster:recent:prevtime', Date.now());
         });
+    }
+}
+
+export abstract class MapsterCommand extends Command {
+    public readonly client: MapsterBot;
+}
+
+export abstract class AdminCommand extends MapsterCommand {
+    public hasPermission(userMsg: CommandMessage) {
+        const adminIds = (<string>this.client.settings.get('role:admin', '')).split(',');
+        return this.client.isOwner(userMsg.author) || adminIds.indexOf(userMsg.author.id) !== -1;
     }
 }

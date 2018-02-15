@@ -99,6 +99,8 @@ export default class HelpCommand extends Command {
                             }
                         `).join('\n\n')
                     }
+
+                    <https://github.com/SC2Mapster/discord-bot>
                 `, { split: true }));
                 if(msg.channel.type !== 'dm') messages.push(<Message>await msg.reply('Sent you a DM with information.'));
             } catch(err) {

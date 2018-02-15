@@ -2,6 +2,7 @@ import * as sugar from 'sugar';
 import * as mapster from 'sc2mapster-crawler';
 import { CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed, TextChannel } from 'discord.js';
+import { ForumThread } from 'sc2mapster-crawler/lib/scrapper/project';
 
 const mBaseURL = 'https://www.sc2mapster.com';
 
@@ -113,4 +114,29 @@ export async function embedRecent(refdate: Date) {
         }
     }
     return embeds;
+}
+
+export function embedForumThread(fthread: ForumThread) {
+    const embed = new RichEmbed({
+        title: fthread.title,
+        description: sugar.String.truncate(fthread.posts[0].content.simplified, 120),
+        author: {
+            name: fthread.posts[0].author.title,
+            icon_url: fthread.posts[0].author.profileThumbUrl,
+            url: `${mBaseURL}/members/${fthread.posts[0].author.name}`,
+        },
+        color: 0xE37C22,
+        url: fthread.url,
+        timestamp: fthread.posts[0].date,
+        footer: {
+            text: `SC2Mapster Forum / ${fthread.categoryBreadcrumb.join(' / ')}`,
+            icon_url: 'https://media.forgecdn.net/avatars/97/682/636293447593708306.png',
+        },
+    });
+    if (fthread.posts[0].content.embeddedImages.length) {
+        embed.image = {
+            url: fthread.posts[0].content.embeddedImages[0],
+        }
+    }
+    return embed;
 }

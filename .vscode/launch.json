@@ -15,6 +15,21 @@
             ],
             "protocol": "inspector",
             "sourceMaps": true
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch Tests",
+            "program": "${workspaceRoot}/node_modules/.bin/_mocha",
+            "args": [
+                "--opts", "mocha.opts",
+                "--grep", "Query Parse"
+            ],
+            "cwd": "${workspaceRoot}",
+            "protocol": "inspector",
+            "outFiles": [
+                "${workspaceRoot}/lib/**/*.js"
+            ]
         }
     ]
 }

@@ -1,21 +1,7 @@
 import { Command, CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed, TextChannel } from 'discord.js';
-import { MapsterBot } from '../bot';
+import { MapsterBot, AdminCommand } from '../bot';
 import * as schedule from 'node-schedule';
-
-// export type MapsterRecentSettingsArgs = {
-//     enabled: boolean;
-//     channel: number;
-// };
-
-abstract class AdminCommand extends Command {
-    public readonly client: MapsterBot;
-
-    public hasPermission(userMsg: CommandMessage) {
-        const adminIds = (<string>this.client.settings.get('role:admin', '')).split(',');
-        return this.client.isOwner(userMsg.author) || adminIds.indexOf(userMsg.author.id) !== -1;
-    }
-}
 
 export class AdminSettingsCommand extends AdminCommand {
     constructor(client: MapsterBot) {

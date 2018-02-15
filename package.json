@@ -1,6 +1,6 @@
 {
   "name": "sc2mapster-discord-bot",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "",
   "license": "MIT",
   "author": {
@@ -25,15 +25,17 @@
   "dependencies": {
     "@types/common-tags": "^1.4.0",
     "blizzard.js": "^2.2.0",
+    "cheerio": "^1.0.0-rc.2",
     "common-tags": "^1.7.2",
     "discord.js": "^11.3.0",
     "discord.js-commando": "git+https://github.com/discordjs/Commando.git#6a608956a2f93c6c142ee1fc22be548f7d97af17",
     "dotenv": "^5.0.0",
+    "html-entities": "^1.2.1",
     "node-schedule": "^1.3.0",
     "plaxtony": "^1.7.2",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
-    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#0c1f0d1f6045d7e4ec87b253788d03aa397d1c57",
+    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#3418ae72a5206e9ad8dca595458cddcdd05dee40",
     "sqlite": "^2.9.1",
     "sugar": "^2.0.4",
     "winston": "^2.4.0",
@@ -41,7 +43,9 @@
   },
   "devDependencies": {
     "@types/chai": "^4.1.2",
+    "@types/cheerio": "^0.22.7",
     "@types/dotenv": "^4.0.2",
+    "@types/html-entities": "^1.2.16",
     "@types/mocha": "^2.2.48",
     "@types/node": "^9.4.4",
     "@types/node-schedule": "^1.2.2",
