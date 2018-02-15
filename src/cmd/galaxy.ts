@@ -31,11 +31,11 @@ async function prepareStore(directory: string, modSources: string[]) {
 export default class GalaxyCommand extends Command {
     private store: Store;
     private printer = new Printer();
-    
+
     constructor(client: MapsterBot) {
         super(client, {
             name: 'galaxy',
-            group: 'util',
+            group: 'general',
             memberName: 'galaxy',
             description: 'Galaxy API',
             args: [
@@ -64,7 +64,7 @@ export default class GalaxyCommand extends Command {
         const fileName = sourceFile.fileName.match(/([^\/]+)$/g)[0];
         const filePath = sourceFile.fileName.match(/\/mods\/(.+)$/g)[0];
         const metaDesc = this.store.s2metadata.getSymbolDoc(sym.escapedName);
-        
+
         const pembed = new RichEmbed({
             title: sym.escapedName,
             description: '',
@@ -89,14 +89,14 @@ export default class GalaxyCommand extends Command {
                 pembed.description += '\n' + argDocs.join('\n');
             }
         }
-        
+
         return pembed;
     }
-    
+
     public async run(msg: CommandMessage, args: string[]) {
         await this.loadup();
         const sym = this.store.resolveGlobalSymbol((<any>args).keyword);
-        
+
         if (!sym) {
             return msg.reply('No results');
         }

@@ -10,7 +10,7 @@ export default class S2PatchCommand extends Command {
     constructor(client: CommandoClient) {
         super(client, {
             name: 's2patch',
-            group: 'util',
+            group: 'general',
             memberName: 's2patch',
             description: 'Retrieves information about current version of SC2 for given region.',
             args: [

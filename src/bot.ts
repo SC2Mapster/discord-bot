@@ -5,6 +5,9 @@ import * as fs from 'fs';
 import * as sugar from 'sugar';
 import * as sqlite from 'sqlite';
 import { CommandoClient, CommandoClientOptions, FriendlyError, SQLiteProvider } from 'discord.js-commando';
+import * as schedule from 'node-schedule';
+import { User, TextChannel } from 'discord.js';
+import { embedRecent } from './util/mapster';
 require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
@@ -39,7 +42,7 @@ export type MapsterOptions = CommandoClientOptions & {
 export class MapsterBot extends CommandoClient {
     constructor(options?: MapsterOptions) {
         options.disableEveryone = true,
-        // options.unknownCommandResponse = false,
+        options.unknownCommandResponse = false,
         super(options);
 
         this.on('error', logger.error);
@@ -50,7 +53,6 @@ export class MapsterBot extends CommandoClient {
             // this.user.setActivity('github.com SC2Mapster/discord-bot', {
             //     type: 'LISTENING',
             // });
-            winston.debug(util.inspect(this.registry.findCommands('mapster:recent', true)));
         })
         this.on('disconnect', () => logger.warn('Disconnected!'))
         this.on('reconnect', () => logger.warn('Reconnecting...'))
@@ -68,22 +70,39 @@ export class MapsterBot extends CommandoClient {
         this.registry.registerDefaultTypes();
         this.registry.registerGroups([
             ['admin', 'Admin'],
-            ['util', 'Utility'],
+            ['general', 'General'],
         ]);
-
-        this.registry.registerDefaultCommands({
-            prefix: false,
-            commandState: false,
-            eval_: false,
-            help: false,
-        });
         this.registry.registerCommandsIn({
             dirname: path.join(__dirname, 'cmd'),
             filter: /.+\.(?:ts|js)$/,
         });
 
         this.setProvider(new Promise(async (resolve, reject) => {
-            resolve(new SQLiteProvider(await sqlite.open('settings.db')));
-        }));
+            await resolve(new SQLiteProvider(await sqlite.open('settings.db')));
+        })).then(() => {
+            this.reloadJobScheduler();
+        });
+    }
+
+    public reloadJobScheduler() {
+        schedule.cancelJob('mapster:recent');
+        const cronValue = this.settings.get('mapster:recent:cron', null);
+        if (!cronValue) return;
+        const j = schedule.scheduleJob('mapster:recent', cronValue, async () => {
+            const channel = <TextChannel>this.user.client.channels.get(this.settings.get('mapster:recent:channel', null));
+            const prev = new Date(Number(this.settings.get('mapster:recent:prevtime', Date.now())));
+
+            logger.debug(`prev: ${prev.toUTCString()}, now: ${(new Date(Date.now())).toUTCString()}`);
+            logger.debug(`channel: ${channel.name}`);
+
+            const embeds = await embedRecent(prev);
+            logger.debug(`embeds: ${embeds.length}`);
+
+            for (const item of embeds) {
+                await channel.send(item);
+            }
+
+            this.settings.set('mapster:recent:prevtime', Date.now());
+        });
     }
 }

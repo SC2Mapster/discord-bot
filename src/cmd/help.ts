@@ -15,7 +15,7 @@ export default class HelpCommand extends Command {
     constructor(client: CommandoClient) {
         super(client, {
             name: 'help',
-            group: 'util',
+            group: 'general',
             memberName: 'help',
             description: 'Displays a list of available commands, or detailed information for a specified command.',
             details: oneLine`
