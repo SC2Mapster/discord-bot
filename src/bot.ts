@@ -4,8 +4,7 @@ import * as winston from 'winston';
 import * as fs from 'fs';
 import * as sugar from 'sugar';
 import * as sqlite from 'sqlite';
-import { CommandoClient, CommandoClientOptions, FriendlyError, SQLiteProvider } from 'discord.js-commando';
-import { Command, CommandMessage } from 'discord.js-commando';
+import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage } from 'discord.js-commando';
 import * as schedule from 'node-schedule';
 import { User, TextChannel } from 'discord.js';
 import { embedRecent } from './util/mapster';
@@ -44,8 +43,9 @@ export class MapsterBot extends CommandoClient {
     log: winston.LoggerInstance;
 
     constructor(options?: MapsterOptions) {
-        options.disableEveryone = true,
-        options.unknownCommandResponse = false,
+        options.disableEveryone = true;
+        options.unknownCommandResponse = false;
+        options.commandEditableDuration = 60;
         super(options);
 
         this.log = logger;
@@ -54,22 +54,24 @@ export class MapsterBot extends CommandoClient {
         this.on('warn', logger.warn);
         this.on('debug', logger.debug);
         this.on('ready', () => {
-            winston.info(`Logged in as ${this.user.tag} (${this.user.id})`);
+            logger.info(`Logged in as ${this.user.tag} (${this.user.id})`);
             this.user.setActivity('!help', {
                 type: 'LISTENING',
             });
-        })
-        this.on('disconnect', () => logger.warn('Disconnected!'))
-        this.on('reconnect', () => logger.warn('Reconnecting...'))
+        });
+        this.on('disconnect', () => logger.warn('Disconnected!'));
+        this.on('reconnect', () => logger.warn('Reconnecting...'));
         this.on('commandRun', (cmd, p, msg) => {
-            logger.debug(`Command run ${cmd.memberName}`);
-            logger.debug(`Author '${msg.author.username}', msg: ${msg.content}`);
+            logger.info(`Command run ${cmd.memberName}, Author '${msg.author.username}', msg: ${msg.content}`);
         });
         this.on('commandError', (cmd, err) => {
             if (err instanceof FriendlyError) {
                 return;
             }
             logger.error(`Error in command ${cmd.groupID}:${cmd.memberName}`, err);
+        });
+        this.on('messageDelete', (msg) => {
+            logger.info(`Message deleted; '${msg.channel.toString()}', '${msg.author.username}', msg: ${msg.content}`);
         });
 
         this.registry.registerDefaultTypes();

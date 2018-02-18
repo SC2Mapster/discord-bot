@@ -1,6 +1,7 @@
 import { Command, CommandoClient, CommandMessage } from 'discord.js-commando';
-import { Message } from 'discord.js';
+import { Message, ReactionEmoji } from 'discord.js';
 import { oneLine, stripIndents } from 'common-tags';
+import { MapsterCommand, MapsterBot } from '../bot';
 
 function disambiguation(items: any, label: any, property = 'name') {
 	const itemList = items.map((item: any) => `"${(property ? item[property] : item).replace(/ /g, '\xa0')}"`).join(',   ');
@@ -11,8 +12,8 @@ export type HelpArgs = {
     command?: string;
 };
 
-export default class HelpCommand extends Command {
-    constructor(client: CommandoClient) {
+export default class HelpCommand extends MapsterCommand {
+    constructor(client: MapsterBot) {
         super(client, {
             name: 'help',
             group: 'general',
@@ -40,8 +41,10 @@ export default class HelpCommand extends Command {
         const groups = this.client.registry.groups;
         const commands = this.client.registry.findCommands(args.command, false, msg.message);
         const showAll = args.command && args.command.toLowerCase() === 'all';
-        if(args.command && !showAll) {
-            if(commands.length === 1) {
+        const messages: Message[] = [];
+
+        if (args.command && !showAll) {
+            if (commands.length === 1) {
                 let help = stripIndents`
                     ${oneLine`
                         __Command **${commands[0].name}**:__ ${commands[0].description}
@@ -57,56 +60,47 @@ export default class HelpCommand extends Command {
                 `}`;
                 if(commands[0].details) help += `\n**Details:** ${commands[0].details}`;
                 if(commands[0].examples) help += `\n**Examples:**\n${commands[0].examples.join('\n')}`;
-
-                const messages: Message[] = [];
-                try {
-                    messages.push(<Message>await msg.direct(help));
-                    if(msg.channel.type !== 'dm') messages.push(<Message>await msg.reply('Sent you a DM with information.'));
-                } catch(err) {
-                    messages.push(<Message>await msg.reply('Unable to send you the help DM. You probably have DMs disabled.'));
-                }
-                return messages;
-            } else if(commands.length > 1) {
-                return msg.reply(disambiguation(commands, 'commands'));
+                messages.push(<Message>await msg.direct(help));
+            } else if (commands.length > 1) {
+                messages.push(<Message>await msg.direct(disambiguation(commands, 'commands')));
             } else {
-                return msg.reply(
-                    `Unable to identify command. Use ${msg.usage(
-                        null, msg.channel.type === 'dm' ? null : undefined, msg.channel.type === 'dm' ? null : undefined
-                    )} to view the list of all commands.`
-                );
+                messages.push(<Message>await msg.direct(`Unable to identify command.`));
             }
-        } else {
-            const messages: Message[] = [];
-            try {
-                messages.push(<Message>await msg.direct(stripIndents`
-                    ${oneLine`
-                        To run a command in ${msg.guild || 'any server'},
-                        use ${Command.usage('command', msg.guild ? this.client.commandPrefix : null, this.client.user)}.
-                        For example, ${Command.usage('prefix', msg.guild ? this.client.commandPrefix : null, this.client.user)}.
-                    `}
-                    To run a command in this DM, simply use ${Command.usage('command', null, null)} with no prefix.
-
-                    Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.
-                    Use ${this.usage('all', null, null)} to view a list of *all* commands, not just available ones.
-
-                    __**${showAll ? 'All commands' : `Available commands in ${msg.guild || 'this DM'}`}**__
-
-                    ${(showAll ? groups : groups.filter(grp => grp.commands.some(cmd => cmd.isUsable(msg.message))))
-                        .map(grp => stripIndents`
-                            __${grp.name}__
-                            ${(showAll ? grp.commands : grp.commands.filter(cmd => cmd.isUsable(msg.message)))
-                                .map(cmd => `**${cmd.name}:** ${cmd.description}`).join('\n')
-                            }
-                        `).join('\n\n')
-                    }
-
-                    <https://github.com/SC2Mapster/discord-bot>
-                `, { split: true }));
-                if(msg.channel.type !== 'dm') messages.push(<Message>await msg.reply('Sent you a DM with information.'));
-            } catch(err) {
-                messages.push(<Message>await msg.reply('Unable to send you the help DM. You probably have DMs disabled.'));
-            }
-            return messages;
         }
+        else {
+            messages.push(<Message>await msg.direct(stripIndents`
+                To run a command in this DM, simply use ${Command.usage('command', null, null)} with no prefix.
+
+                Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.
+
+                **${showAll ? 'All commands' : `Available commands in __${msg.guild || 'this DM'}__`}**
+
+                ${(showAll ? groups : groups.filter(grp => grp.commands.some(cmd => cmd.isUsable(msg.message))))
+                    .map(grp => stripIndents`
+                        __${grp.name}__
+                        ${(showAll ? grp.commands : grp.commands.filter(cmd => cmd.isUsable(msg.message)))
+                            .map(cmd => `**${cmd.name}:** ${cmd.description}`).join('\n')
+                        }
+                    `).join('\n\n')
+                }
+
+                *Bot is open source and available on (https://github.com/SC2Mapster/discord-bot)*
+            `, { split: true }));
+        }
+
+        try {
+            if (msg.channel.type !== 'dm') {
+                // messages.push(<Message>await msg.reply('Sent you a DM with information.'));
+                await msg.react('✔');
+                if (msg.deletable) {
+                    await msg.delete(4000);
+                }
+            }
+        } catch(err) {
+            // messages.push(<Message>await msg.reply('Unable to send you the help DM. You probably have DMs disabled.'));
+            throw err;
+        }
+
+        return messages;
     }
 }
