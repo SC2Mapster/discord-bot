@@ -17,7 +17,7 @@ export function handleMapsterException(e: Error, msg: CommandMessage) {
 
 export function embedProject(project: mapster.ProjectOverview) {
     const pembed = new RichEmbed({
-        title: project.title,
+        title: project.base.title,
         description: sugar.String.truncate(project.description.simplified, 200),
         author: {
             name: project.owner.title,
@@ -25,10 +25,10 @@ export function embedProject(project: mapster.ProjectOverview) {
             url: `${mBaseURL}/members/${project.owner.name}`,
         },
         color: 0xE37C22,
-        url: `${mBaseURL}/projects/${project.name}`,
+        url: `${mBaseURL}/projects/${project.base.name}`,
         timestamp: project.updatedAt,
         footer: {
-            text: `Projects / ${project.rootCategory}`,
+            text: `Projects / ${project.base.rootCategory}`,
             icon_url: 'https://media.forgecdn.net/avatars/97/682/636293447593708306.png',
         },
         fields: [
@@ -46,9 +46,9 @@ export function embedProject(project: mapster.ProjectOverview) {
             },
         ],
     });
-    if (project.thumbnail) {
+    if (project.base.thumbnail) {
         pembed.thumbnail = {
-            url: project.thumbnail,
+            url: project.base.thumbnail,
         };
     }
     if (project.description.embeddedImages.length) {
@@ -59,7 +59,7 @@ export function embedProject(project: mapster.ProjectOverview) {
     return pembed;
 }
 
-export function embedFile(pfile: mapster.ProjectFile) {
+export function embedFile(pfile: mapster.ProjectFile, frontImage?: string) {
     const pembed = new RichEmbed({
         title: pfile.title,
         description: sugar.String.truncate(pfile.description.simplified, 120),
@@ -69,10 +69,10 @@ export function embedFile(pfile: mapster.ProjectFile) {
             url: `${mBaseURL}/members/${pfile.uploadedBy.name}`,
         },
         color: 0xE37C22,
-        url: `${mBaseURL}/projects/${pfile.projectName}/files/${pfile.id}`,
+        url: `${mBaseURL}/projects/${pfile.base.name}/files/${pfile.id}`,
         timestamp: pfile.updatedAt,
         footer: {
-            text: `${pfile.filename}`,
+            text: `${pfile.base.rootCategory} / ${pfile.base.title}`,
             icon_url: 'https://media.forgecdn.net/avatars/97/682/636293447593708306.png',
         },
         fields: [
@@ -93,12 +93,34 @@ export function embedFile(pfile: mapster.ProjectFile) {
             },
         ],
     });
-    if (pfile.description.embeddedImages.length) {
+    if (pfile.base.thumbnail) {
+        pembed.thumbnail = {
+            url: pfile.base.thumbnail,
+        };
+    }
+    if (frontImage) {
+        pembed.image = {
+            url: frontImage,
+        }
+    }
+    else if (pfile.description.embeddedImages.length) {
         pembed.image = {
             url: pfile.description.embeddedImages[0],
         }
     }
     return pembed;
+}
+
+export async function prepareEmbedFile(pfile: mapster.ProjectFile) {
+    let frontImage = null;
+    if (pfile.description.embeddedImages.length <= 0) {
+        const imPage = await mapster.getProjectImages(pfile.base.name)
+        const result = mapster.findMatchingFileImage(pfile.title, imPage.images);
+        if (result) {
+            frontImage = result.imageUrl;
+        }
+    }
+    return embedFile(pfile, frontImage);
 }
 
 export async function embedRecent(refdate: Date) {
@@ -109,8 +131,8 @@ export async function embedRecent(refdate: Date) {
         if (project.createdAt > refdate) {
             embeds.push(embedProject(project));
         }
-        for (const pfile of (await mapster.getLatestProjectFiles(project.name, refdate)).reverse()) {
-            embeds.push(embedFile(pfile));
+        for (const pfile of (await mapster.getLatestProjectFiles(project.base.name, refdate)).reverse()) {
+            embeds.push(await prepareEmbedFile(pfile));
         }
     }
     return embeds;

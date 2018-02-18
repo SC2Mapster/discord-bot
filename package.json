@@ -35,7 +35,7 @@
     "plaxtony": "^1.7.2",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
-    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#3418ae72a5206e9ad8dca595458cddcdd05dee40",
+    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#b78da15c677f9b76de4838bde5a815460b6c88cc",
     "sqlite": "^2.9.1",
     "sugar": "^2.0.4",
     "winston": "^2.4.0",

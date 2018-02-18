@@ -4,7 +4,7 @@ import * as util from 'util';
 import * as mapster from 'sc2mapster-crawler';
 import { stripIndents } from 'common-tags';
 import { MapsterBot, MapsterCommand } from '../bot';
-import { embedProject, embedFile, embedForumThread } from '../util/mapster';
+import { embedProject, embedFile, embedForumThread, prepareEmbedFile } from '../util/mapster';
 import * as q from '../util/query';
 
 function embedWiki(wres: q.ResultWikiItem) {
@@ -45,27 +45,27 @@ export class QueryCommand extends MapsterCommand {
             },
             details: stripIndents`
                 ---
-                *Source* (optional) modifier can limit query to specific area, such as:
+                *Source* (optional) modifier can limit query to specific area.
                 -  \`src:<resource>\` or \`s:<resource>\`
                 -  Where \`<resource>\` should be set to one of the constants below:
-                -  \`project\` or \`p\` - Projects (Maps/Assets) published on SC2Mapster
-                -  \`pfile\` or \`pf\` - Files of the Projects published on SC2Mapster
-                -  \`forum\` or \`f\` - Threads & posts published on SC2mapster
-                -  \`wiki\` or \`w\` - Wiki pages published on SC2Mapster.gamepedia
+                -    \`project\` or \`p\` - Projects (Maps/Assets) published on SC2Mapster
+                -    \`pfile\` or \`pf\` - Files of the Projects published on SC2Mapster
+                -    \`forum\` or \`f\` - Threads & posts published on SC2mapster
+                -    \`wiki\` or \`w\` - Wiki pages published on SC2Mapster.gamepedia
 
-                *Limit* (optional) limit modifier results <count> to given number [1-10]:
+                *Limit* (optional) results <count> to given number [1-10]:
                 -  \`limit:<count>\` or \`l:<count>\`
                 -  NOT YET IMPLEMENTED
 
                 *Index* (optional) modifier to pick result at <index> from the ones that were listed.
-                -  \`limit:<index>\` or \`l:<index>\`
+                -  \`index:<index>\` or \`i:<index>\`
                 -  NOT YET IMPLEMENTED
                 ---
             `,
             examples: [
                 stripIndents`\`!q src:wiki assets.txt\``,
-                stripIndents`\`!q src:mfile insane briefing\``,
-                stripIndents`\`!q src:mproject nanakey modern warfare\``,
+                stripIndents`\`!q src:pfile insane briefing\``,
+                stripIndents`\`!q src:project delphinium modern war\``,
                 stripIndents`\`!q pirate kinetics demo\``,
             ],
         });
@@ -93,7 +93,7 @@ export class QueryCommand extends MapsterCommand {
                         (<q.ResultProjectFileItem>results[0]).projectName,
                         (<q.ResultProjectFileItem>results[0]).fileId
                     );
-                    rmsg = await msg.embed(embedFile(pfile));
+                    rmsg = await msg.embed(await prepareEmbedFile(pfile));
                     break;
                 }
                 case q.ResultItemKind.MapsterWiki:
