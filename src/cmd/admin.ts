@@ -15,6 +15,7 @@ export class AdminSettingsCommand extends AdminCommand {
                     key: 'key',
                     type: 'string',
                     prompt: 'key',
+                    default: '',
                 },
                 {
                     key: 'value',
@@ -28,16 +29,30 @@ export class AdminSettingsCommand extends AdminCommand {
 
     public async run(msg: CommandMessage, args: { key: string, value: string }) {
         let response = '';
-        response = `\`${args.key}\` = \`${this.client.settings.get(args.key)}\``;
-        if (args.value.length > 0) {
-            if (args.value === 'null') {
-                this.client.settings.remove(args.key);
+
+        const settingsContainer = <Map<string,Object>>(<any>this.client.provider).settings;
+        const globalSettings = settingsContainer.has('global') ? settingsContainer.get('global') : {};
+
+        if (args.key.length == 0) {
+            for (const key in globalSettings) {
+                if (!globalSettings.hasOwnProperty(key)) continue;
+                response = `\`${key}\` = \`${(<any>globalSettings)[key]}\``;
             }
-            else {
-                this.client.settings.set(args.key, args.value);
-            }
-            response += ` -> changed to \`${args.value}\``;
         }
+        else {
+            response = `\`${args.key}\` = \`${this.client.settings.get(args.key)}\``;
+            if (args.value.length > 0) {
+                if (args.value === 'null') {
+                    this.client.settings.remove(args.key);
+                }
+                else {
+                    this.client.settings.set(args.key, args.value);
+                }
+                response += ` -> changed to \`${args.value}\``;
+            }
+        }
+
+        if (!response.length) response = 'empty';
         return msg.reply(response);
     }
 }
