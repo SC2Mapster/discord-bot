@@ -36,7 +36,7 @@ export class AdminSettingsCommand extends AdminCommand {
         if (args.key.length == 0) {
             for (const key in globalSettings) {
                 if (!globalSettings.hasOwnProperty(key)) continue;
-                response = `\`${key}\` = \`${(<any>globalSettings)[key]}\``;
+                response += `\`${key}\` = \`${(<any>globalSettings)[key]}\`\n`;
             }
         }
         else {

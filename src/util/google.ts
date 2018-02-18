@@ -67,11 +67,12 @@ async function fetchPage(options: SearchOptions) {
     catch (e) {
         if (e instanceof StatusCodeError) {
             if (e.statusCode == 302) {
-                var parsed = url.parse(e.options.headers.location, true);
+                var parsed = url.parse(e.response.headers.location, true);
 
                 if (parsed.pathname !== '/search') {
                     // TODO: captcha
-                    throw new CaptchaError('Captcha');
+                    // throw new CaptchaError('Captcha');
+                    throw e;
                 }
             }
         }
