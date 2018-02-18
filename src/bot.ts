@@ -6,7 +6,7 @@ import * as sugar from 'sugar';
 import * as sqlite from 'sqlite';
 import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage } from 'discord.js-commando';
 import * as schedule from 'node-schedule';
-import { User, TextChannel } from 'discord.js';
+import { User, TextChannel, Message } from 'discord.js';
 import { embedRecent } from './util/mapster';
 require('winston-daily-rotate-file');
 
@@ -106,7 +106,9 @@ export class MapsterBot extends CommandoClient {
             logger.debug(`embeds: ${embeds.length}`);
 
             for (const item of embeds) {
-                await channel.send(item);
+                const emsg = <Message>await channel.send(item);
+                await emsg.react('⬆');
+                await emsg.react('⬇');
             }
 
             this.settings.set('mapster:recent:prevtime', Date.now());
