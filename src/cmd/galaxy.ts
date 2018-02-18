@@ -1,6 +1,6 @@
 import { Command, CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed } from 'discord.js';
-import { MapsterBot } from '../bot';
+import { MapsterBot, MapsterCommand } from '../bot';
 import * as path from 'path';
 import * as gt from '../../node_modules/plaxtony/lib/compiler/types';
 import { getSourceFileOfNode } from '../../node_modules/plaxtony/lib/compiler/utils';
@@ -8,6 +8,7 @@ import { getLineAndCharacterOfPosition } from '../../node_modules/plaxtony/lib/s
 import { Printer } from '../../node_modules/plaxtony/lib/compiler/printer';
 import { Store, S2WorkspaceWatcher } from '../../node_modules/plaxtony/lib/service/store';
 import { resolveArchiveDirectory, SC2Workspace, SC2Archive } from '../../node_modules/plaxtony/lib/sc2mod/archive';
+import * as stringSimilarity from 'string-similarity';
 
 // TODO: use pre-generated database, instead of indexing data on runtime...
 
@@ -28,8 +29,10 @@ async function prepareStore(directory: string, modSources: string[]) {
     return store;
 }
 
-export default class GalaxyCommand extends Command {
+export default class GalaxyCommand extends MapsterCommand {
     private store: Store;
+    private symbols = new Map<string, gt.Symbol>();
+    private skeys: string[];
     private printer = new Printer();
 
     constructor(client: MapsterBot) {
@@ -37,6 +40,7 @@ export default class GalaxyCommand extends Command {
             name: 'galaxy',
             group: 'general',
             memberName: 'galaxy',
+            aliases: ['gal'],
             description: 'Galaxy API',
             args: [
                 {
@@ -52,6 +56,13 @@ export default class GalaxyCommand extends Command {
     protected async loadup() {
         if (!this.store) {
             this.store = await prepareStore(path.join('sc2-data-trigger', 'mods', 'core.sc2mod'), [path.join('sc2-data-trigger')]);
+            for (const sourceFile of this.store.documents.values()) {
+                for (const sym of sourceFile.symbol.members.values()) {
+                    this.symbols.set(sym.escapedName, sym);
+                }
+            }
+            this.skeys = Array.from(this.symbols.keys());
+            this.client.log.info(`symbols: ${this.skeys.length}`);
         }
         return this.store;
     }
@@ -95,12 +106,16 @@ export default class GalaxyCommand extends Command {
 
     public async run(msg: CommandMessage, args: string[]) {
         await this.loadup();
-        const sym = this.store.resolveGlobalSymbol((<any>args).keyword);
+        let sym = this.store.resolveGlobalSymbol((<any>args).keyword);
 
         if (!sym) {
-            return msg.reply('No results');
+            const match = stringSimilarity.findBestMatch((<any>args).keyword, this.skeys);
+            this.client.log.info('match', match.bestMatch);
+            if (match.bestMatch.rating >= 0.3) {
+                sym = this.store.resolveGlobalSymbol(match.bestMatch.target);
+            }
         }
 
-        return msg.embed(this.embedSymbol(sym));
+        return sym ? await msg.embed(this.embedSymbol(sym)) : await msg.reply('No results');
     }
 }

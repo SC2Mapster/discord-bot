@@ -37,6 +37,7 @@
     "request-promise": "^4.2.2",
     "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#b78da15c677f9b76de4838bde5a815460b6c88cc",
     "sqlite": "^2.9.1",
+    "string-similarity": "^1.2.0",
     "sugar": "^2.0.4",
     "winston": "^2.4.0",
     "winston-daily-rotate-file": "^1.7.2"
