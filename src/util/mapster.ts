@@ -3,6 +3,7 @@ import * as mapster from 'sc2mapster-crawler';
 import { CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed, TextChannel } from 'discord.js';
 import { ForumThread } from 'sc2mapster-crawler/lib/scrapper/project';
+import * as imgur from 'imgur';
 
 const mBaseURL = 'https://www.sc2mapster.com';
 
@@ -13,6 +14,14 @@ export function handleMapsterException(e: Error, msg: CommandMessage) {
     else {
         throw e;
     }
+}
+
+async function fixCurseCDNUrlImage(url: string) {
+    if (/^https:\/\/media\.forgecdn\.net\/attachments\/.+/.test(url)) {
+        const imgImage = await imgur.uploadUrl(url);
+        return imgImage.data.link;
+    }
+    return url;
 }
 
 export function embedProject(project: mapster.ProjectOverview) {
@@ -120,7 +129,17 @@ export async function prepareEmbedFile(pfile: mapster.ProjectFile) {
             frontImage = result.imageUrl;
         }
     }
+    if (pfile.description.embeddedImages.length) {
+        pfile.description.embeddedImages[0] = await fixCurseCDNUrlImage(pfile.description.embeddedImages[0]);
+    }
     return embedFile(pfile, frontImage);
+}
+
+export async function prepareEmbedProject(project: mapster.ProjectOverview) {
+    if (project.description.embeddedImages.length) {
+        project.description.embeddedImages[0] = await fixCurseCDNUrlImage(project.description.embeddedImages[0]);
+    }
+    return embedProject(project);
 }
 
 export async function embedRecent(refdate: Date) {
@@ -129,7 +148,7 @@ export async function embedRecent(refdate: Date) {
     const embeds: RichEmbed[] = [];
     for (const project of plist.reverse()) {
         if (project.createdAt > refdate) {
-            embeds.push(embedProject(project));
+            embeds.push(await prepareEmbedProject(project));
         }
         for (const pfile of (await mapster.getLatestProjectFiles(project.base.name, refdate)).reverse()) {
             embeds.push(await prepareEmbedFile(pfile));

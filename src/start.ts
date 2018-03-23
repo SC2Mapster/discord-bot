@@ -7,3 +7,7 @@ const bot = new MapsterBot({
     owner: process.env.BOT_OWNER.split(','),
 });
 bot.login(process.env.BOT_TOKEN);
+
+(<any>global).bot = bot;
+
+export default bot;
