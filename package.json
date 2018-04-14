@@ -20,7 +20,8 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "test": "mocha --opts mocha.opts",
-    "test:watch": "mocha --opts mocha.opts --watch"
+    "test:watch": "mocha --opts mocha.opts --watch",
+    "typeorm": "ts-node ./node_modules/.bin/typeorm"
   },
   "dependencies": {
     "@octokit/rest": "^15.2.6",
@@ -33,8 +34,10 @@
     "dotenv": "^5.0.0",
     "html-entities": "^1.2.1",
     "imgur": "^0.2.1",
+    "mysql": "^2.15.0",
     "node-schedule": "^1.3.0",
     "plaxtony": "^1.7.2",
+    "reflect-metadata": "^0.1.12",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
     "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#66f5d269d2457dea6963f874b39835ad955fcfac",
@@ -42,6 +45,7 @@
     "string-similarity": "^1.2.0",
     "sugar": "^2.0.4",
     "turndown": "^4.0.1",
+    "typeorm": "^0.1.21",
     "winston": "^2.4.0",
     "winston-daily-rotate-file": "^1.7.2"
   },

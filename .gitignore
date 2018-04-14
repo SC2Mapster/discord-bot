@@ -3,3 +3,4 @@ logs/
 .env
 settings.db
 sync.sh
+ormconfig.json

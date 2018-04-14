@@ -7,13 +7,16 @@ import * as sqlite from 'sqlite';
 import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage, CommandInfo } from 'discord.js-commando';
 import * as schedule from 'node-schedule';
 import { User, TextChannel, Message } from 'discord.js';
+import * as orm from 'typeorm';
 import { embedRecent } from './util/mapster';
 import { oentries } from './util/helpers';
 import { BnetPatchNotifierTask } from './task/bnetPatchNotifier';
+import 'reflect-metadata';
+import { ArchiveManager } from './archive';
 require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
-const logger = new (winston.Logger)({
+export const logger = new (winston.Logger)({
     level: 'debug',
 
     transports: [
@@ -44,6 +47,7 @@ export type MapsterOptions = CommandoClientOptions & {
 
 export class MapsterBot extends CommandoClient {
     log: winston.LoggerInstance;
+    db: orm.Connection;
 
     constructor(options?: MapsterOptions) {
         options.disableEveryone = true;
@@ -88,6 +92,18 @@ export class MapsterBot extends CommandoClient {
             }
             logger.info(`Message deleted; '${msg.channel.toString()}', '${msg.author.username}', msg: ${msg.content}`);
         });
+        this.on('messageUpdate', (oldMessage, newMessage) => {
+            logger.info('Message update');
+            this.logDeletedMessage(newMessage);
+        });
+        this.on('messageDelete', (msg) => {
+            logger.info('Message deleted');
+            this.logDeletedMessage(msg);
+        });
+        this.on('messageDeleteBulk', (messages) => {
+            logger.info('Message bulk delete');
+            messages.forEach((msg) => this.logDeletedMessage(msg));
+        });
         this.on('message', async (msg) => {
             // #showcase
             if (msg.channel.id === '410424727484628993') {
@@ -107,6 +123,8 @@ export class MapsterBot extends CommandoClient {
         });
 
         this.setProvider(new Promise(async (resolve, reject) => {
+            // TODO:
+            // this.db = await orm.createConnection();
             await resolve(new SQLiteProvider(await sqlite.open('settings.db')));
         })).then(() => {
             this.initialized();
@@ -115,7 +133,44 @@ export class MapsterBot extends CommandoClient {
     }
 
     protected initialized() {
+        this.reloadJobScheduler();
         (new BnetPatchNotifierTask(this)).load();
+        // (new ArchiveManager(this)).watch();
+    }
+
+    protected logDeletedMessage(msg: Message) {
+        logger.info('', {
+            author: {
+                id: msg.author.id,
+                username: msg.author.username,
+            },
+            createdTimestamp: msg.createdTimestamp,
+            editedTimestamp: msg.editedTimestamp,
+            content: msg.content,
+            attachments: msg.attachments.map((attachment) => {
+                return {
+                    id: attachment.id,
+                    filename: attachment.filename,
+                    filesize: attachment.filesize,
+                    proxyURL: attachment.proxyURL,
+                    url: attachment.url,
+                };
+            }),
+            embeds: msg.embeds.map((embed) => {
+                return {
+                    color: embed.color,
+                    description: embed.description,
+                    // fields: embed.fields,
+                    // footer: embed.footer,
+                    // image: embed.image,
+                    // thumbnail: embed.thumbnail,
+                    title: embed.title,
+                    type: embed.type,
+                    // video: embed.video,
+                    url: embed.url,
+                };
+            }),
+        });
     }
 
     public getChannel(id: string) {
