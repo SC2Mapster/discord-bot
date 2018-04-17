@@ -80,6 +80,13 @@ export class MapsterBot extends CommandoClient {
             }
             logger.info(`Message deleted; '${msg.channel.toString()}', '${msg.author.username}', msg: ${msg.content}`);
         });
+        this.on('message', async (msg) => {
+            // #showcase
+            if (msg.channel.id === '410424727484628993') {
+                await msg.react('⬆');
+                await msg.react('⬇');
+            }
+        });
 
         this.registry.registerDefaultTypes();
         this.registry.registerGroups([
