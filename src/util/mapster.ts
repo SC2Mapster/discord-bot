@@ -45,14 +45,14 @@ export function embedProject(project: mapster.ProjectOverview) {
                 name: 'Categories',
                 value: project.categories.map((item) => {
                     return item.name;
-                }).join(' **|** '),
-                inline: true,
+                }).join(' **—** '),
+                // inline: true,
             },
-            {
-                name: 'Downloads',
-                value: sugar.Number.abbr(project.totalDownloads, 1),
-                inline: true,
-            },
+            // {
+            //     name: 'Downloads',
+            //     value: sugar.Number.abbr(project.totalDownloads, 1),
+            //     inline: true,
+            // },
         ],
     });
     if (project.base.thumbnail) {
@@ -71,7 +71,7 @@ export function embedProject(project: mapster.ProjectOverview) {
 export function embedFile(pfile: mapster.ProjectFile, frontImage?: string) {
     const pembed = new RichEmbed({
         title: pfile.title,
-        description: sugar.String.truncate(pfile.description.simplified, 120),
+        description: sugar.String.truncate(pfile.description.simplified, 160),
         author: {
             name: pfile.uploadedBy.title,
             icon_url: pfile.uploadedBy.profileThumbUrl,
@@ -90,16 +90,16 @@ export function embedFile(pfile: mapster.ProjectFile, frontImage?: string) {
             //     value: pfile.filename,
             //     inline: true,
             // },
-            {
-                name: 'Size',
-                value: pfile.size,
-                inline: true,
-            },
-            {
-                name: 'Downloads',
-                value: sugar.Number.abbr(pfile.downloads, 1),
-                inline: true,
-            },
+            // {
+            //     name: 'Size',
+            //     value: pfile.size,
+            //     inline: true,
+            // },
+            // {
+            //     name: 'Downloads',
+            //     value: sugar.Number.abbr(pfile.downloads, 1),
+            //     inline: true,
+            // },
         ],
     });
     if (pfile.base.thumbnail) {

@@ -56,6 +56,37 @@ export function parseNGDPTable<T extends string>(data: string) {
     return result;
 }
 
+export function parseNGDPRegionTable<T extends string>(data: string) {
+    let headNames: string[] = null;
+    const result = new Map<NGDPRegion, Map<T, string>>();
+    for (const line of data.split('\n')) {
+        let matches: RegExpMatchArray;
+        if (!headNames) {
+            headNames = [];
+            const rgx = /(?:^|\|)([^!]+)!([^|]+)/g;
+            while (matches = rgx.exec(line)) {
+                headNames.push(matches[1]);
+            }
+        }
+        else {
+            const rgx = /(?:^|\|)([^|]+)/g;
+            let i = 0;
+            const entry = new Map<T, string>();
+            let region: NGDPRegion = null;
+            while (matches = rgx.exec(line)) {
+                if (!region) {
+                    region = <NGDPRegion>matches[1]
+                }
+                entry.set(<T>headNames[i++], matches[1]);
+            }
+            if (i > 0) {
+                result.set(region, entry)
+            }
+        }
+    }
+    return result;
+}
+
 export type NGDPResource = 'cdns'
     | 'versions'
     | 'bgdl'
@@ -69,5 +100,5 @@ export async function getResource(res: NGDPResource): Promise<string> {
 }
 
 export async function getVersionInfo() {
-    return parseNGDPTable<NGDPVersionKey>(await getResource('versions'));
+    return parseNGDPRegionTable<NGDPVersionKey>(await getResource('versions'));
 }

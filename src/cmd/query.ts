@@ -68,6 +68,7 @@ export class QueryCommand extends MapsterCommand {
                 stripIndents`\`!q src:project delphinium modern war\``,
                 stripIndents`\`!q pirate kinetics demo\``,
             ],
+            deleteOnUserCommandDelete: true,
         });
     }
 

@@ -47,7 +47,7 @@ export default class HelpCommand extends MapsterCommand {
             if (commands.length === 1) {
                 let help = stripIndents`
                     ${oneLine`
-                        __Command **${commands[0].name}**:__ ${commands[0].description}
+                        __Command **${commands[0].name}** — __ ${commands[0].description}
                         ${commands[0].guildOnly ? ' (Usable only in servers)' : ''}
                     `}
 
@@ -79,12 +79,10 @@ export default class HelpCommand extends MapsterCommand {
                     .map(grp => stripIndents`
                         __${grp.name}__
                         ${(showAll ? grp.commands : grp.commands.filter(cmd => cmd.isUsable(msg.message)))
-                            .map(cmd => `**${cmd.name}:** ${cmd.description}`).join('\n')
+                            .map(cmd => `**${cmd.name}** — ${cmd.description}`).join('\n')
                         }
                     `).join('\n\n')
                 }
-
-                *Bot is open source and available on (https://github.com/SC2Mapster/discord-bot)*
             `, { split: true }));
         }
 

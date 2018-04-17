@@ -8,7 +8,7 @@
     "removeComments": false,
     "strict": true,
     "strictNullChecks": false,
-    "target": "es6",
+    "target": "es2017",
     "experimentalDecorators": true,
     "sourceMap": true
   },

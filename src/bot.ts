@@ -4,10 +4,11 @@ import * as winston from 'winston';
 import * as fs from 'fs';
 import * as sugar from 'sugar';
 import * as sqlite from 'sqlite';
-import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage } from 'discord.js-commando';
+import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage, CommandInfo } from 'discord.js-commando';
 import * as schedule from 'node-schedule';
 import { User, TextChannel, Message } from 'discord.js';
 import { embedRecent } from './util/mapster';
+import { BnetPatchNotifierTask } from './task/bnetPatchNotifier';
 require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
@@ -18,6 +19,7 @@ const logger = new (winston.Logger)({
         new (winston.transports.Console)({
             colorize: true,
             prettyPrint: true,
+            level: 'debug',
             timestamp: function() {
                 return sugar.Date.format(new Date(Date.now()), '{HH}:{mm}:{ss}.{SSS}');
             },
@@ -70,7 +72,12 @@ export class MapsterBot extends CommandoClient {
             }
             logger.error(`Error in command ${cmd.groupID}:${cmd.memberName}`, err);
         });
-        this.on('messageDelete', (msg) => {
+        this.on('messageDelete', async (msg) => {
+            const r = (<Map<string, CommandMessage>>(<any>this.dispatcher)._results).get(msg.id);
+            const cmd = r.command;
+            if (cmd instanceof MapsterCommand && cmd.minfo.deleteOnUserCommandDelete) {
+                await r.delete();
+            }
             logger.info(`Message deleted; '${msg.channel.toString()}', '${msg.author.username}', msg: ${msg.content}`);
         });
 
@@ -87,8 +94,17 @@ export class MapsterBot extends CommandoClient {
         this.setProvider(new Promise(async (resolve, reject) => {
             await resolve(new SQLiteProvider(await sqlite.open('settings.db')));
         })).then(() => {
+            this.initialized();
             this.reloadJobScheduler();
         });
+    }
+
+    protected initialized() {
+        (new BnetPatchNotifierTask(this)).load();
+    }
+
+    public getChannel(id: string) {
+        return <TextChannel>this.user.client.channels.get(id);
     }
 
     public reloadJobScheduler() {
@@ -116,8 +132,20 @@ export class MapsterBot extends CommandoClient {
     }
 }
 
+export type MapsterCommandInfo = {
+    deleteOnUserCommandDelete?: boolean;
+};
+
 export abstract class MapsterCommand extends Command {
     public readonly client: MapsterBot;
+    public readonly minfo: MapsterCommandInfo;
+
+    constructor(client: MapsterBot, info: CommandInfo & MapsterCommandInfo) {
+        super(client, info);
+        this.minfo = Object.assign(<MapsterCommandInfo>{
+            deleteOnUserCommandDelete: false,
+        }, info)
+    }
 }
 
 export abstract class AdminCommand extends MapsterCommand {
