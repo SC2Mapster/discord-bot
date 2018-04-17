@@ -8,6 +8,7 @@ import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError
 import * as schedule from 'node-schedule';
 import { User, TextChannel, Message } from 'discord.js';
 import { embedRecent } from './util/mapster';
+import { oentries } from './util/helpers';
 import { BnetPatchNotifierTask } from './task/bnetPatchNotifier';
 require('winston-daily-rotate-file');
 
@@ -74,9 +75,16 @@ export class MapsterBot extends CommandoClient {
         });
         this.on('messageDelete', async (msg) => {
             const r = (<Map<string, CommandMessage>>(<any>this.dispatcher)._results).get(msg.id);
-            const cmd = r.command;
-            if (cmd instanceof MapsterCommand && cmd.minfo.deleteOnUserCommandDelete) {
-                await r.delete();
+            if (r) {
+                const cmd = r.command;
+                if (cmd instanceof MapsterCommand && cmd.minfo.deleteOnUserCommandDelete) {
+                    const responses: Message[] = (<any>r.responses)[msg.id]
+                    for (const rlist of oentries(r.responses)) {
+                        for (const mresp of rlist) {
+                            await mresp.delete();
+                        }
+                    }
+                }
             }
             logger.info(`Message deleted; '${msg.channel.toString()}', '${msg.author.username}', msg: ${msg.content}`);
         });
