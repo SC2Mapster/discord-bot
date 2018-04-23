@@ -69,6 +69,7 @@ export function parseNGDPRegionTable<T extends string>(data: string) {
             }
         }
         else {
+            if (line.startsWith('##')) continue;
             const rgx = /(?:^|\|)([^|]+)/g;
             let i = 0;
             const entry = new Map<T, string>();

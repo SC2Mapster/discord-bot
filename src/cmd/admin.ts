@@ -34,10 +34,11 @@ export class AdminSettingsCommand extends AdminCommand {
         const globalSettings = settingsContainer.has('global') ? settingsContainer.get('global') : {};
 
         if (args.key.length == 0) {
-            for (const key in globalSettings) {
-                if (!globalSettings.hasOwnProperty(key)) continue;
-                response += `\`${key}\` = \`${(<any>globalSettings)[key]}\`\n`;
-            }
+            // for (const key in globalSettings) {
+            //     if (!globalSettings.hasOwnProperty(key)) continue;
+            //     response += `\`${key}\` = \`${(<any>globalSettings)[key]}\`\n`;
+            // }
+            return msg.code('js', JSON.stringify(globalSettings, null, 4));
         }
         else {
             response = `\`${args.key}\` = \`${this.client.settings.get(args.key)}\``;

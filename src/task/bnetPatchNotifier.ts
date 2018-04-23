@@ -17,6 +17,7 @@ export type S2PatchReleaseInfo = {
     version: string;
     releaseDate: Date,
     patchNotesMessage: string;
+    patchLiveMessage: string;
 };
 
 export type S2PatchState = {
@@ -43,75 +44,83 @@ export class BnetPatchNotifierTask extends Task {
                 version: '4.2.3',
                 releaseDate: new Date(1523386026539),
                 patchNotesMessage: '',
+                patchLiveMessage: '',
             },
         });
 
         // could probably only poll servers on tuesday - usual patch day; but who knows...
-        this.job = schedule.scheduleJob(this.constructor.name, <schedule.RecurrenceRule>{second: 0}, this.tick.bind(this));
+        this.job = schedule.scheduleJob(this.constructor.name, '*/2 * * * *', this.tick.bind(this));
         this.job.invoke();
     }
 
-    async persistState() {
+    private async persistState() {
         await this.client.settings.set(this.constructor.name + '_state', this.state);
     }
 
-    async tick(fireDate: Date) {
+    private async tick(fireDate: Date) {
         this.client.log.debug('Polling NGDP..');
         const result = await getVersionInfo();
         this.client.log.debug('NGDP result', result.get('us'));
 
         if (Number(result.get('us').get('BuildId')) > this.state.current.build) {
-            this.client.log.info('New patch detected.. preparing notifaction..', result.get('us'));
-            const previous = Object.assign({}, this.state.current);
-
-            // if (this.state.current.patchNotesMessage) {
-            //     const msg = await this.client.getChannel(this.settings.notificationsChannel).fetchMessage(this.state.current.patchNotesMessage);
-            //     if (msg && msg.pinned) {
-            //         msg.unpin();
-            //     }
-            // }
+            this.client.log.info('Detected new patch on NGDP..', result.get('us'));
+            // const previous = Object.assign({}, this.state.current);
             this.state.current = {
                 build: Number(result.get('us').get('BuildId')),
                 version: result.get('us').get('VersionsName').replace(/\.[0-9]+$/, ''),
                 releaseDate: new Date(Date.now()),
                 patchNotesMessage: null,
+                patchLiveMessage: null,
             };
-            await this.client.getChannel(this.settings.notificationsChannel).send(...genNotificationMsg(previous, this.state.current));
+            await this.persistState();
+        }
+        if (Number(result.get('us').get('BuildId')) >= this.state.current.build && !this.state.current.patchLiveMessage) {
+            this.client.log.info('Patch live.. preparing notifaction..', result.get('us'));
+            const msg = <Message>await this.client.getChannel(this.settings.notificationsChannel).send(...genNotificationMsg(this.state.current));
+            this.state.current.patchLiveMessage = msg.id;
             await this.persistState();
         }
 
-        if (this.state.current.patchNotesMessage === null) {
-            this.client.log.debug('Polling for patch notes..');
-            const r = await getPatchNotes('s2', 1);
-            if (r.patchNotes.length && r.patchNotes[0].buildNumber >= this.state.current.build) {
-                this.client.log.info('Retrievied patch notes..', r.patchNotes[0]);
-                const notesMsg = genPatchNotesMsg(r.patchNotes[0]);
-                const msg = <Message>await this.client.getChannel(this.settings.notificationsChannel).send(notesMsg.content, notesMsg.options);
-                // if (msg.pinnable) {
-                //     await msg.pin();
-                // }
-                this.state.current.patchNotesMessage = msg.id;
-                await this.persistState();
-            }
+        //
+        this.client.log.debug('Polling for patch notes..');
+        const rnot = await getPatchNotes('s2', 1);
+        this.client.log.info('Retrievied patch notes..', rnot.patchNotes[0]);
+        if (rnot.patchNotes[0].buildNumber > this.state.current.build) {
+            this.client.log.info('New version of patchnnotes..');
+            this.state.current = {
+                build: rnot.patchNotes[0].buildNumber,
+                version: rnot.patchNotes[0].version,
+                releaseDate: new Date(rnot.patchNotes[0].publish),
+                patchNotesMessage: null,
+                patchLiveMessage: null,
+            };
+            await this.persistState();
+        }
+        if (this.state.current.patchNotesMessage === null && rnot.patchNotes[0].buildNumber >= this.state.current.build) {
+            this.client.log.info('patchnotes released');
+            const notesMsg = genPatchNotesMsg(rnot.patchNotes[0]);
+            const msg = <Message>await this.client.getChannel(this.settings.notificationsChannel).send(notesMsg.content, notesMsg.options);
+            this.state.current.patchNotesMessage = msg.id;
+            await this.persistState();
         }
     }
 }
 
-function genNotificationMsg(current: S2PatchReleaseInfo, upcoming: S2PatchReleaseInfo) {
+function genNotificationMsg(upcoming: S2PatchReleaseInfo) {
     const embed = new RichEmbed({
         color: 0x0e86ca,
         description: stripIndents`
             \`\`\`js
-            |     UPCOMING      |      CURRENT      |
-            |———————————————————|———————————————————|
-            | Version:${upcoming.version.padStart(7)}   |   Version:${current.version.padStart(7)} |
-            |   Build:${upcoming.build.toString().padStart(7)}   |     Build:${current.build.toString().padStart(7)} |
+            |       LIVE        |
+            |———————————————————|
+            | Version:${upcoming.version.padStart(7)}   |
+            |   Build:${upcoming.build.toString().padStart(7)}   |
             \`\`\`
         `,
         footer: {
             icon_url: 'https://i.imgur.com/MDgIR4B.png',
-            text: `Previous release: ${(new Sugar.Date(current.releaseDate)).relative().raw.toString()}`
+            // text: `Previous release: ${(new Sugar.Date(current.releaseDate)).relative().raw.toString()}`
         }
     });
-    return [' — SC2 — **PATCH INBOUD**', {embed: embed}];
+    return [' — SC2 — New version has been deployed', {embed: embed}];
 }
