@@ -169,18 +169,20 @@ export class ArchiveManager extends Task {
         }
 
         this.client.on('message', (dmessage) => {
+            if (dmessage.channel.type === 'dm') return;
             if (dmessage.guild.id !== this.mapsterGuild) return;
             this.store.updateMessage(dmessage);
         });
         this.client.on('messageUpdate', (old, dmessage) => {
+            if (dmessage.channel.type === 'dm') return;
             if (dmessage.guild.id !== this.mapsterGuild) return;
             this.store.updateMessage(dmessage);
         });
 
-        for (const [key, dchan] of this.client.guilds.get(this.mapsterGuild).channels) {
-            if (dchan.type !== 'text') continue;
-            await this.syncChannel(<ds.TextChannel>this.client.channels.get(dchan.id));
-        }
+        // for (const [key, dchan] of this.client.guilds.get(this.mapsterGuild).channels) {
+        //     if (dchan.type !== 'text') continue;
+        //     await this.syncChannel(<ds.TextChannel>this.client.channels.get(dchan.id));
+        // }
     }
 
     private async syncChannel(dchan: ds.TextChannel) {
