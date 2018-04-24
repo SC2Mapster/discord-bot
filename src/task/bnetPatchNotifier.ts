@@ -98,7 +98,7 @@ export class BnetPatchNotifierTask extends Task {
         }
         if (this.state.current.patchNotesMessage === null && rnot.patchNotes[0].buildNumber >= this.state.current.build) {
             this.client.log.info('patchnotes released');
-            const notesMsg = genPatchNotesMsg(rnot.patchNotes[0]);
+            const notesMsg = await genPatchNotesMsg(rnot.patchNotes[0]);
             const msg = <Message>await this.client.getChannel(this.settings.notificationsChannel).send(notesMsg.content, notesMsg.options);
             this.state.current.patchNotesMessage = msg.id;
             await this.persistState();

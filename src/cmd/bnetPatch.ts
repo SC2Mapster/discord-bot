@@ -89,7 +89,7 @@ export class BnetPatchNotesCommand extends MapsterCommand {
             return msg.say('no results');
         }
 
-        const tmp = genPatchNotesMsg(pnote);
+        const tmp = await genPatchNotesMsg(pnote);
         return msg.say(tmp.content, tmp.options)
     }
 }

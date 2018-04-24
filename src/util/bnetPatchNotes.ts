@@ -1,8 +1,10 @@
+import * as fs from 'fs';
 import * as request from 'request-promise';
 import * as Sugar from 'sugar';
 import TurndownService = require('turndown');
 import { RichEmbed, Util, MessageOptions } from 'discord.js';
 import * as github from '../github';
+const Pageres = require('pageres');
 
 const turndownService = new TurndownService({
     headingStyle: 'atx',
@@ -84,14 +86,25 @@ export async function getCachedNotes() {
 //     return embed;
 // }
 
-export function genPatchNotesMsg(pnote: PatchNoteEntry) {
+export async function genPatchNotesMsg(pnote: PatchNoteEntry) {
+    const buff = new Buffer(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="https://bootswatch.com/4/solar/bootstrap.min.css"/></head><body><div class="container">${pnote.detail}</div></body></html>`);
+    const fname = `/tmp/s2notes-${pnote.slug}.html`;
+    fs.writeFileSync(fname, buff);
+    const pg = new Pageres({delay: 1.5});
+    const ss = await pg.src(fname, ['1024x300']).dest('out').run();
     return {
         content: `StarCraft **${pnote.patchVersion}** Patch Notes — \`${pnote.buildNumber}\`\n`,
         options: <MessageOptions>{
-            file: {
-                name: `s2-notes-${pnote.slug}.html`,
-                attachment: new Buffer(`<link rel="stylesheet" href="https://bootswatch.com/4/solar/bootstrap.min.css"/>\n<div class="container">${pnote.detail}</div>`),
-            }
+            files: [
+                {
+                    name: `s2-notes-${pnote.slug}.html`,
+                    attachment: buff,
+                },
+                {
+                    name: ss[0].filename,
+                    attachment: `out/${ss[0].filename}`,
+                },
+            ]
         },
     };
 }
