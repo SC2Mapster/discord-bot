@@ -6,7 +6,7 @@ export class MessageAttachment {
     @PrimaryColumn('bigint')
     id: string;
 
-    @OneToOne(type => Message)
+    @OneToOne(type => Message, msg => msg.attachments)
     @JoinColumn()
     message: Message;
 
@@ -16,19 +16,15 @@ export class MessageAttachment {
     @Column()
     filesize: number;
 
-    @Column({
-        nullable: true,
-    })
-    width: number;
+    @Column({ nullable: true })
+    width?: number;
 
-    @Column({
-        nullable: true,
-    })
-    height: number;
-
-    @Column()
-    proxyUrl: string;
+    @Column({ nullable: true })
+    height?: number;
 
     @Column()
     url: string;
+
+    @Column()
+    proxyUrl: string;
 }

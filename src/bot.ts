@@ -12,7 +12,7 @@ import { embedRecent } from './util/mapster';
 import { oentries } from './util/helpers';
 import { BnetPatchNotifierTask } from './task/bnetPatchNotifier';
 import 'reflect-metadata';
-import { ArchiveManager } from './archive';
+import { ArchiveManager } from './task/archive';
 require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
@@ -123,19 +123,17 @@ export class MapsterBot extends CommandoClient {
         });
 
         this.setProvider(new Promise(async (resolve, reject) => {
-            // TODO:
-            // this.db = await orm.createConnection();
+            this.db = await orm.createConnection();
             await resolve(new SQLiteProvider(await sqlite.open('settings.db')));
         })).then(() => {
             this.initialized();
-            this.reloadJobScheduler();
         });
     }
 
     protected initialized() {
         this.reloadJobScheduler();
         (new BnetPatchNotifierTask(this)).load();
-        // (new ArchiveManager(this)).watch();
+        (new ArchiveManager(this)).load();
     }
 
     protected logDeletedMessage(msg: Message) {
