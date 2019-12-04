@@ -1,5 +1,8 @@
 import * as url from 'url';
 import * as google from './google';
+import * as request from 'request-promise';
+import * as cheerio from 'cheerio';
+import * as stringSimilarity from 'string-similarity';
 
 export enum SourceKind {
     Any,
@@ -16,6 +19,10 @@ export type QueryParams = {
     resultIndex?: number;
 };
 
+function clamp(num: number, min: number, max: number) {
+    return num <= min ? min : num >= max ? max : num;
+}
+
 function parseOp(qp: QueryParams, key: string, value: string) {
     switch (key) {
         case 'src':
@@ -31,7 +38,7 @@ function parseOp(qp: QueryParams, key: string, value: string) {
         case 'limit':
         case 'l':
         {
-            return qp.limit = Number(value);
+            return qp.limit = clamp(Number(value), 1, 6);
         }
 
         case 'index':
@@ -46,7 +53,7 @@ export function parseQuery(query: string) {
     const qp: QueryParams = {
         src: SourceKind.Any,
         phrase: query,
-        limit: 1,
+        limit: 10,
     };
 
     const opsRE = /(\w+):(\w+)/g;
@@ -100,7 +107,7 @@ export interface ResultWikiItem extends ResultItem {
 };
 
 export async function executeQuery(params: QueryParams) {
-    const res: ResultItem[] = [];
+    let res: ResultItem[] = [];
     let qstring: string[] = [];
 
     switch (params.src) {
@@ -135,6 +142,32 @@ export async function executeQuery(params: QueryParams) {
                 (<ResultProjectFileItem>resItem).projectName = m[1];
                 (<ResultProjectFileItem>resItem).fileId = Number(m[2]);
             }
+            // project file listing
+            else if (m = /^\/projects\/([\w-]+)\/files(\?.+)?$/i.exec(urlInfo.pathname)) {
+                const fileMap = new Map<string, number>();
+
+                const response = await request.get(item.url, {followRedirect: true});
+                const $ = cheerio.load(response);
+                $('.project-file-name-container >a').each((index, item) => {
+                    const $el = $(item);
+                    const m = $el.attr('href').match(/\/files\/([0-9]+)$/);
+                    fileMap.set($el.html().trim(), Number(m[1]));
+                });
+
+                const siMatch = stringSimilarity.findBestMatch(params.phrase, Array.from(fileMap.keys()));
+                if (siMatch.bestMatch.rating < 0.3) continue;
+
+                resItem.kind = ResultItemKind.MapsterProjectFile;
+                (<ResultProjectFileItem>resItem).projectName = m[1];
+                (<ResultProjectFileItem>resItem).fileId = fileMap.get(siMatch.bestMatch.target);
+                resItem.title = resItem.title.replace(/^Files/, siMatch.bestMatch.target);
+                resItem.description = '';
+
+                urlInfo.pathname = `/projects/${(<ResultProjectFileItem>resItem).projectName}/files/${(<ResultProjectFileItem>resItem).fileId}`;
+                urlInfo.query = '';
+                urlInfo.search = '';
+                resItem.url = url.format(urlInfo);
+            }
             else if (m = /^\/forums\/([\D\/]+)(\d+)\-([\w\-]+)$/i.exec(urlInfo.pathname)) {
             // else if (m = /^\/forums\/((?:\/?[\w\-]+)+)\/(\d+)\-([\w\-]+)/ig.exec(urlInfo.pathname)) {
                 resItem.kind = ResultItemKind.MapsterForum;
@@ -154,6 +187,10 @@ export async function executeQuery(params: QueryParams) {
         res.push(resItem);
 
         if (params.limit && res.length >= params.limit) break;
+    }
+
+    if (params.resultIndex && params.resultIndex > 0 && params.resultIndex <= res.length) {
+        res = res.slice(params.resultIndex - 1, params.resultIndex);
     }
 
     return res;

@@ -6,13 +6,17 @@ import * as sugar from 'sugar';
 import * as sqlite from 'sqlite';
 import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage, CommandInfo } from 'discord.js-commando';
 import * as schedule from 'node-schedule';
-import { User, TextChannel, Message } from 'discord.js';
+import { User, TextChannel, Message, MessageOptions, Guild } from 'discord.js';
 import * as orm from 'typeorm';
 import { embedRecent } from './util/mapster';
 import { oentries } from './util/helpers';
 import { BnetPatchNotifierTask } from './task/bnetPatchNotifier';
 import 'reflect-metadata';
 import { ArchiveManager } from './task/archive';
+import { MapsterRecentTask } from './task/mapsterRecent';
+import { NotablePinTask } from './task/notablepin';
+import { MapsterCommonTask } from './task/mcommon';
+import { PasteTask } from './task/paste';
 require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
@@ -52,7 +56,7 @@ export class MapsterBot extends CommandoClient {
     constructor(options?: MapsterOptions) {
         options.disableEveryone = true;
         options.unknownCommandResponse = false;
-        options.commandEditableDuration = 60;
+        options.commandEditableDuration = 300;
         super(options);
 
         this.log = logger;
@@ -79,12 +83,12 @@ export class MapsterBot extends CommandoClient {
         });
         this.on('messageDelete', async (msg) => {
             const r = (<Map<string, CommandMessage>>(<any>this.dispatcher)._results).get(msg.id);
-            if (r) {
+            if (r && !r.message.cleanContent.endsWith('$')) {
                 const cmd = r.command;
                 if (cmd instanceof MapsterCommand && cmd.minfo.deleteOnUserCommandDelete) {
                     const responses: Message[] = (<any>r.responses)[msg.id]
                     for (const rlist of oentries(r.responses)) {
-                        for (const mresp of rlist) {
+                        for (const mresp of <any>rlist) {
                             await mresp.delete();
                         }
                     }
@@ -104,22 +108,18 @@ export class MapsterBot extends CommandoClient {
             logger.info('Message bulk delete');
             messages.forEach((msg) => this.logDeletedMessage(msg));
         });
-        this.on('message', async (msg) => {
-            // #showcase
-            if (msg.channel.id === '410424727484628993') {
-                await msg.react('⬆');
-                await msg.react('⬇');
-            }
-        });
 
         this.registry.registerDefaultTypes();
         this.registry.registerGroups([
             ['admin', 'Admin'],
+            ['mod', 'Mod'],
             ['general', 'General'],
         ]);
+        if (process.env.ENV !== 'dev') {
+        }
         this.registry.registerCommandsIn({
             dirname: path.join(__dirname, 'cmd'),
-            filter: /.+\.(?:ts|js)$/,
+            filter: /.+\.js$/,
         });
 
         this.setProvider(new Promise(async (resolve, reject) => {
@@ -131,9 +131,19 @@ export class MapsterBot extends CommandoClient {
     }
 
     protected initialized() {
-        this.reloadJobScheduler();
-        (new BnetPatchNotifierTask(this)).load();
-        (new ArchiveManager(this)).load();
+        (new NotablePinTask(this).load());
+        (new MapsterCommonTask(this).load());
+        (new PasteTask(this).load());
+
+        if (process.env.ENV !== 'dev') {
+            this.reloadJobScheduler();
+
+            (new BnetPatchNotifierTask(this)).load();
+            (new MapsterRecentTask(this)).load();
+            (new ArchiveManager(this)).load();
+        }
+        else {
+        }
     }
 
     protected logDeletedMessage(msg: Message) {
@@ -176,27 +186,6 @@ export class MapsterBot extends CommandoClient {
     }
 
     public reloadJobScheduler() {
-        schedule.cancelJob('mapster:recent');
-        const cronValue = this.settings.get('mapster:recent:cron', null);
-        if (!cronValue) return;
-        const j = schedule.scheduleJob('mapster:recent', cronValue, async () => {
-            const channel = <TextChannel>this.user.client.channels.get(this.settings.get('mapster:recent:channel', null));
-            const prev = new Date(Number(this.settings.get('mapster:recent:prevtime', Date.now())));
-
-            logger.debug(`prev: ${prev.toUTCString()}, now: ${(new Date(Date.now())).toUTCString()}`);
-            logger.debug(`channel: ${channel.name}`);
-
-            const embeds = await embedRecent(prev);
-            logger.debug(`embeds: ${embeds.length}`);
-
-            for (const item of embeds) {
-                const emsg = <Message>await channel.send(item);
-                await emsg.react('⬆');
-                await emsg.react('⬇');
-            }
-
-            this.settings.set('mapster:recent:prevtime', Date.now());
-        });
     }
 }
 
@@ -208,7 +197,7 @@ export abstract class MapsterCommand extends Command {
     public readonly client: MapsterBot;
     public readonly minfo: MapsterCommandInfo;
 
-    constructor(client: MapsterBot, info: CommandInfo & MapsterCommandInfo) {
+    constructor(client: MapsterBot, info: (CommandInfo & MapsterCommandInfo) = null) {
         super(client, info);
         this.minfo = Object.assign(<MapsterCommandInfo>{
             deleteOnUserCommandDelete: false,
@@ -218,7 +207,12 @@ export abstract class MapsterCommand extends Command {
 
 export abstract class AdminCommand extends MapsterCommand {
     public hasPermission(userMsg: CommandMessage) {
-        const adminIds = (<string>this.client.settings.get('role:admin', '')).split(',');
-        return this.client.isOwner(userMsg.author) || adminIds.indexOf(userMsg.author.id) !== -1;
+        const adminIds = (<string>this.client.settings.get('admin.users-list', '')).split(',');
+        return this.client.isOwner(userMsg.author) || adminIds.indexOf(userMsg.author.id) !== -1 || userMsg.member.hasPermission('MANAGE_GUILD');
+    }
+}
+export abstract class ModCommand extends AdminCommand {
+    public hasPermission(userMsg: CommandMessage) {
+        return super.hasPermission(userMsg) || userMsg.member.hasPermission('MANAGE_CHANNELS');
     }
 }

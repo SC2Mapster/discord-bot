@@ -5,16 +5,16 @@ export class User {
     @PrimaryColumn('bigint')
     id: string;
 
-    @Column()
+    @Column('varchar')
     username: string;
 
-    @Column()
+    @Column('varchar')
     discriminator: string;
 
-    @Column()
+    @Column('varchar')
     tag: string;
 
-    @Column({
+    @Column('varchar', {
         nullable: true,
     })
     avatarURL: string;

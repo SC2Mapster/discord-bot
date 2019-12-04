@@ -1,69 +1,106 @@
+import * as discord from 'discord.js';
 import { Command, CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed, TextChannel } from 'discord.js';
 import { MapsterBot, AdminCommand } from '../bot';
 import * as schedule from 'node-schedule';
 
-export class AdminSettingsCommand extends AdminCommand {
+export class AdminConfigGetCommand extends AdminCommand {
     constructor(client: MapsterBot) {
         super(client, {
-            name: 'admin:settings',
+            name: 'a.cfg.get',
             group: 'admin',
-            memberName: 'admin:settings',
-            description: 'Settings manager',
+            memberName: 'a.cfg.get',
+            description: 'Config get',
             args: [
                 {
                     key: 'key',
                     type: 'string',
                     prompt: 'key',
                     default: '',
+                }
+            ],
+        });
+    }
+
+    public async run(msg: CommandMessage, args: { key: string }) {
+        const settingsContainer = <Map<string,Object>>(<any>this.client.provider).settings;
+        const globalSettings = settingsContainer.has('global') ? settingsContainer.get('global') : {};
+
+        if (args.key.length == 0) {
+            const values: string[] = [];
+            for (const cfgKey of Object.keys(globalSettings)) {
+                values.push(cfgKey);
+            }
+            return msg.embed({
+                title: `- ${values.length}`,
+                description: values.map(v => `\`${v}\``).join('\n'),
+            });
+            // return msg.code('md', JSON.stringify(globalSettings, null, 4));
+        }
+        else {
+            let val: string | object  = this.client.settings.get(args.key, 'null');
+            if (typeof val === 'string') {
+                val = val.replace(/```/gm, '``\\`')
+            }
+            else {
+                val = JSON.stringify(val, null, 4);
+            }
+            return msg.embed({
+                title: args.key,
+                // description: discord.Util.escapeMarkdown(`${val}`),
+                description: '```\n' + val + '\n```',
+            });
+        }
+    }
+}
+
+export class AdminConfigSetCommand extends AdminCommand {
+    constructor(client: MapsterBot) {
+        super(client, {
+            name: 'a.cfg.set',
+            group: 'admin',
+            memberName: 'a.cfg.set',
+            description: 'Config set',
+            args: [
+                {
+                    key: 'key',
+                    type: 'string',
+                    prompt: 'key',
                 },
                 {
                     key: 'value',
                     type: 'string',
                     prompt: 'value',
-                    default: '',
                 },
             ],
         });
     }
 
     public async run(msg: CommandMessage, args: { key: string, value: string }) {
-        let response = '';
-
         const settingsContainer = <Map<string,Object>>(<any>this.client.provider).settings;
         const globalSettings = settingsContainer.has('global') ? settingsContainer.get('global') : {};
 
-        if (args.key.length == 0) {
-            // for (const key in globalSettings) {
-            //     if (!globalSettings.hasOwnProperty(key)) continue;
-            //     response += `\`${key}\` = \`${(<any>globalSettings)[key]}\`\n`;
-            // }
-            return msg.code('js', JSON.stringify(globalSettings, null, 4));
+        const prevValue = this.client.settings.get(args.key, 'null');
+        if (args.value === 'null') {
+            await this.client.settings.remove(args.key);
         }
         else {
-            response = `\`${args.key}\` = \`${this.client.settings.get(args.key)}\``;
-            if (args.value.length > 0) {
-                if (args.value === 'null') {
-                    this.client.settings.remove(args.key);
-                }
-                else {
-                    this.client.settings.set(args.key, args.value);
-                }
-                response += ` -> changed to \`${args.value}\``;
-            }
+            await this.client.settings.set(args.key, args.value);
         }
 
-        if (!response.length) response = 'empty';
-        return msg.reply(response);
+        return msg.embed({
+            title: `Previous value:`,
+            description: prevValue,
+        }, `Config for \`${args.key}\` updated.`)
     }
 }
 
 export class AdminSchedulerCommand extends AdminCommand {
     constructor(client: MapsterBot) {
         super(client, {
-            name: 'admin:scheduler',
+            name: 'a.scheduler',
             group: 'admin',
-            memberName: 'admin:scheduler',
+            memberName: 'a.scheduler',
             description: 'Job scheduler',
             args: [
                 {
@@ -83,12 +120,46 @@ export class AdminSchedulerCommand extends AdminCommand {
             this.client.reloadJobScheduler();
             response += '*reloaded*\n';
         }
+        let i = 1;
         for (const key in schedule.scheduledJobs) {
             if (!schedule.scheduledJobs.hasOwnProperty(key)) continue;
             const job = schedule.scheduledJobs[key];
-            response += `**${job.name}** - ${(<any>job.nextInvocation())._date.format()}\n`;
+            response += `[${i}] ${job.name}\n — ${(<any>job.nextInvocation())._date.format()}\n`;
+            ++i;
         }
-        if (!response) response = 'none';
-        return msg.reply(response.trim());
+        if (!response) {
+            return msg.say('none');
+        }
+        return msg.code('js', response.trim());
+    }
+}
+
+
+export class AdminSchedulerInvokeCommand extends AdminCommand {
+    constructor(client: MapsterBot) {
+        super(client, {
+            name: 'a.scheduler.invoke',
+            group: 'admin',
+            memberName: 'a.scheduler.invoke',
+            description: 'Job scheduler [invoke]',
+            args: [
+                {
+                    key: 'task',
+                    type: 'string',
+                    prompt: 'task',
+                },
+            ],
+        });
+    }
+
+    public async run(msg: CommandMessage, args: { task: string }) {
+        const job = schedule.scheduledJobs[args.task];
+        if (job) {
+            (<any>job).invoke(new Date());
+            return msg.say('ok');
+        }
+        else {
+            return msg.say('not found');
+        }
     }
 }

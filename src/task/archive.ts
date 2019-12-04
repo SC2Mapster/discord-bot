@@ -1,4 +1,5 @@
 import { getManager, EntityManager } from 'typeorm';
+import * as Sugar from 'sugar';
 import * as ds from 'discord.js';
 import { MapsterBot, logger } from "../bot";
 import { Message } from '../entity/Message';
@@ -84,13 +85,19 @@ export class ArchiveStore {
             embed.url = dembed.url;
             embed.color = dembed.color;
 
-            embed.fields = [];
-            for (const item of dembed.fields) {
-                embed.fields.push({
-                    name: item.name,
-                    value: item.value,
-                    inline: item.inline,
-                });
+            if (dembed.fields.length) {
+                const mfields: MessageEmbedField[] = [];
+                for (const item of dembed.fields) {
+                    mfields.push({
+                        name: item.name,
+                        value: item.value,
+                        inline: item.inline,
+                    });
+                }
+                embed.fields = JSON.stringify(mfields);
+            }
+            else {
+                embed.fields = null;
             }
 
             if (dembed.footer) {
@@ -141,60 +148,87 @@ export class ArchiveStore {
         }
 
         for (const [key, attachment] of dmessage.attachments) {
-            this.updateAttachment(attachment, msg);
+            await this.updateAttachment(attachment, msg);
         }
 
         return msg;
+    }
+
+    public async softDeleteMessage(dmessage: ds.Message) {
+        let msg = await this.em.findOneById(Message, dmessage.id);
+        if (!msg) {
+            return;
+        }
+        msg.deletedAt = new Date(Date.now());
+        await this.em.save(msg)
     }
 }
 
 export class ArchiveManager extends Task {
     readonly store = new ArchiveStore();
-    readonly mapsterGuild = '271701880885870594';
 
     constructor(bot: MapsterBot) {
         super(bot, {});
     }
 
     public load() {
+        this.client.on('guildMemberAdd', async (dmember) => {
+            await this.store.updateUser(dmember.user);
+        });
+        this.client.on('channelCreate', async (dchan) => {
+            if (dchan.type !== 'text') return;
+            await this.store.updateChannel(<ds.TextChannel>dchan);
+        });
+        this.client.on('message', async (dmessage) => {
+            if (dmessage.channel.type === 'dm') return;
+            await this.store.updateMessage(dmessage);
+        });
+        this.client.on('messageUpdate', async (old, dmessage) => {
+            if (dmessage.channel.type === 'dm') return;
+            await this.store.updateMessage(dmessage);
+        });
+        this.client.on('messageDelete', async (dmessage) => {
+            if (dmessage.channel.type === 'dm') return;
+            await this.store.softDeleteMessage(dmessage);
+        });
+        this.client.on('messageDeleteBulk', async (dmessages) => {
+            for (const dmessage of dmessages.values()) {
+                if (dmessage.channel.type === 'dm') return;
+                await this.store.softDeleteMessage(dmessage);
+            }
+        });
+
         this.processChannels();
     }
 
     private async processChannels() {
-        for (const [key, dchan] of this.client.guilds.get(this.mapsterGuild).channels) {
-            // if (dchan.type === 'text' || dchan.type === 'category') {
-            if (dchan.type !== 'text') continue;
-            logger.info(`Processing chan "${dchan.name}"`);
-            await this.store.updateChannel(<ds.TextChannel>dchan);
+        for (const currentGuild of this.client.guilds.values()) {
+            for (const dchan of currentGuild.channels.values()) {
+                if (dchan.type !== 'text') continue;
+                await this.store.updateChannel(<ds.TextChannel>dchan);
+            }
+
+            for (const dchan of currentGuild.channels.values()) {
+                if (dchan.type !== 'text') continue;
+                await this.syncChannel(<ds.TextChannel>this.client.channels.get(dchan.id), {
+                    newerThan: new Sugar.Date(Date.now()).addDays(-2).raw,
+                });
+            }
         }
-
-        this.client.on('message', (dmessage) => {
-            if (dmessage.channel.type === 'dm') return;
-            if (dmessage.guild.id !== this.mapsterGuild) return;
-            this.store.updateMessage(dmessage);
-        });
-        this.client.on('messageUpdate', (old, dmessage) => {
-            if (dmessage.channel.type === 'dm') return;
-            if (dmessage.guild.id !== this.mapsterGuild) return;
-            this.store.updateMessage(dmessage);
-        });
-
-        // for (const [key, dchan] of this.client.guilds.get(this.mapsterGuild).channels) {
-        //     if (dchan.type !== 'text') continue;
-        //     await this.syncChannel(<ds.TextChannel>this.client.channels.get(dchan.id));
-        // }
     }
 
-    private async syncChannel(dchan: ds.TextChannel) {
+    private async syncChannel(dchan: ds.TextChannel, options: { newerThan: Date } = { newerThan: null }) {
         // function syncChunk(dmessages: ds.Collection<ds.Snowflake, ds.Message>) {
         // }
         let queryOptions = <ds.ChannelLogsQueryOptions>{
             around: dchan.lastMessageID,
             limit: 1,
         };
-        logger.info('sync channel BEGIN');
-        do {
-            const dmessages = await dchan.fetchMessages(queryOptions)
+        logger.info(`sync channel BEGIN [#${dchan.name}]`);
+        while(true) {
+            const dmessages = (await dchan.fetchMessages(queryOptions)).filter(dmsg => {
+                return options.newerThan === null || options.newerThan < dmsg.createdAt;
+            });
             if (dmessages.size === 0) break;
             for (const dmsg of dmessages.values()) {
                 logger.debug(`[#${dchan.name}] Message ${dmsg.createdAt}`);
@@ -204,7 +238,7 @@ export class ArchiveManager extends Task {
                 before: dmessages.last().id,
                 limit: 100,
             };
-        } while(true);
+        }
         logger.info('sync channel END');
     }
 }

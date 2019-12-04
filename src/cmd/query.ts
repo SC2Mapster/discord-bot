@@ -1,10 +1,11 @@
 import { Command, CommandMessage } from 'discord.js-commando';
-import { Message, RichEmbed, TextChannel } from 'discord.js';
+import { Message, RichEmbed, TextChannel, GuildResolvable } from 'discord.js';
+import * as discord from 'discord.js';
 import * as util from 'util';
 import * as mapster from 'sc2mapster-crawler';
 import { stripIndents } from 'common-tags';
 import { MapsterBot, MapsterCommand } from '../bot';
-import { embedProject, embedFile, embedForumThread, prepareEmbedFile } from '../util/mapster';
+import { embedProject, embedFile, embedForumThread, prepareEmbedFile, getActiveConnection } from '../util/mapster';
 import * as q from '../util/query';
 
 function embedWiki(wres: q.ResultWikiItem) {
@@ -30,6 +31,23 @@ function embedWiki(wres: q.ResultWikiItem) {
     return wembed;
 }
 
+function numberToEmoji(num: number) {
+    switch (num) {
+        case 0: return ':zero:';
+        case 1: return ':one:';
+        case 2: return ':two:';
+        case 3: return ':three:';
+        case 4: return ':four:';
+        case 5: return ':five:';
+        case 6: return ':six:';
+        case 7: return ':seven:';
+        case 8: return ':eight:';
+        case 9: return ':nine:';
+        case 10: return ':ten:';
+        default: return '??';
+    }
+}
+
 export class QueryCommand extends MapsterCommand {
     constructor(client: MapsterBot) {
         super(client, {
@@ -53,13 +71,11 @@ export class QueryCommand extends MapsterCommand {
                 -    \`forum\` or \`f\` - Threads & posts published on SC2mapster
                 -    \`wiki\` or \`w\` - Wiki pages published on SC2Mapster.gamepedia
 
-                *Limit* (optional) results <count> to given number [1-10]:
+                *Limit* (optional) results <count> to given number [1-10] defaults to 5:
                 -  \`limit:<count>\` or \`l:<count>\`
-                -  NOT YET IMPLEMENTED
 
                 *Index* (optional) modifier to pick result at <index> from the ones that were listed.
                 -  \`index:<index>\` or \`i:<index>\`
-                -  NOT YET IMPLEMENTED
                 ---
             `,
             examples: [
@@ -72,9 +88,24 @@ export class QueryCommand extends MapsterCommand {
         });
     }
 
+    isEnabledIn(guild: GuildResolvable) {
+        return false;
+    }
+
     public async run(msg: CommandMessage, args: string) {
         msg.channel.startTyping();
+
+        let eraseCmdMessage = false;
+        if (args.endsWith('$')) {
+            args = args.substring(0, args.length - 1).trimRight();
+            if (msg.deletable) {
+                eraseCmdMessage = true;
+                await msg.delete();
+            }
+        }
+
         let rmsg: Message | Message[];
+        const conn = await getActiveConnection();
         const results = await q.query(args);
         this.client.log.debug('res', results);
         if (results.length === 0) {
@@ -84,17 +115,17 @@ export class QueryCommand extends MapsterCommand {
             switch (results[0].kind) {
                 case q.ResultItemKind.MapsterProject:
                 {
-                    const project = await mapster.getProject((<q.ResultProjectItem>results[0]).projectName);
+                    const project = await conn.getProjectOverview((<q.ResultProjectItem>results[0]).projectName);
                     rmsg = await msg.embed(embedProject(project));
                     break;
                 }
                 case q.ResultItemKind.MapsterProjectFile:
                 {
-                    const pfile = await mapster.getProjectFile(
+                    const pfile = await conn.getProjectFile(
                         (<q.ResultProjectFileItem>results[0]).projectName,
                         (<q.ResultProjectFileItem>results[0]).fileId
                     );
-                    rmsg = await msg.embed(await prepareEmbedFile(pfile));
+                    rmsg = await msg.embed(await prepareEmbedFile(pfile, (await conn.getProjectImages(pfile.base.name)).images));
                     break;
                 }
                 case q.ResultItemKind.MapsterWiki:
@@ -104,7 +135,7 @@ export class QueryCommand extends MapsterCommand {
                 }
                 case q.ResultItemKind.MapsterForum:
                 {
-                    const fthread = await mapster.getForumThread(results[0].url)
+                    const fthread = await conn.getForumThread(results[0].url)
                     const embed = embedForumThread(fthread);
                     embed.description = results[0].description;
                     rmsg = await msg.embed(embed);
@@ -118,7 +149,45 @@ export class QueryCommand extends MapsterCommand {
             }
         }
         else {
-            rmsg = await msg.reply(`r: ${results.length}`);
+            const contentResults: string[] = [];
+            for (const [key, item] of results.entries()) {
+                // ${numberToEmoji(key + 1)}
+                let title = item.title;
+                title = title.replace(/\s*(- SC2Mapster Wiki)\s*[\.]*$/, '');
+                title = title.replace(/\s*(- SC2Mapster)\s*[\.]*$/, '');
+                title = title.replace(/\s*(- SC2 Mapster Forums)\s*[\.]*$/, '');
+                let tmp = '. `[' + ['𝟭','𝟮','𝟯','𝟰','𝟱','𝟲','𝟳','𝟴','𝟵'][key] +  ']`';
+
+                // tmp += ' /';
+                let ssym = '';
+                switch (item.kind) {
+                    case q.ResultItemKind.MapsterForum:       ssym += 'f'; break;
+                    case q.ResultItemKind.MapsterWiki:        ssym += 'w'; break;
+                    case q.ResultItemKind.MapsterProject:     ssym += 'p'; break;
+                    case q.ResultItemKind.MapsterProjectFile: ssym += 'a'; break;
+                }
+                // tmp += '/`';
+
+                // ►
+                tmp += ` - [${ssym}: ${title}](${discord.Util.escapeMarkdown(item.url)})`;
+                tmp += `\n${item.description}`;
+                // if (item.meta) {
+                //     tmp += `\n\` — ${item.meta}\``;
+                // }
+                contentResults.push(tmp);
+            }
+
+            let fullResponse = '';
+            for (const item of contentResults) {
+                if ((fullResponse.length + item.length) >= 2048) break;
+                fullResponse += item + '\n';
+            }
+
+            rmsg = await msg.say(eraseCmdMessage ? `\`${discord.Util.escapeMarkdown(args)}\`` : '', {
+                embed: {
+                    description: fullResponse.trim(),
+                },
+            });
         }
         msg.channel.stopTyping(true);
         return rmsg;

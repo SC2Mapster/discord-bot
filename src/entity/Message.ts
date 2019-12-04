@@ -24,7 +24,7 @@ export class Message {
     @JoinColumn()
     channel: Channel;
 
-    @Column({
+    @Column('varchar', {
         nullable: true,
     })
     type: MessageType | string;
@@ -48,7 +48,7 @@ export class Message {
     })
     deletedAt: Date;
 
-    @Column()
+    @Column('tinyint')
     pinned: boolean;
 
     @Column('text')

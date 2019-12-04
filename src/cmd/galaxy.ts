@@ -2,13 +2,24 @@ import { Command, CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed } from 'discord.js';
 import { MapsterBot, MapsterCommand } from '../bot';
 import * as path from 'path';
-import * as gt from '../../node_modules/plaxtony/lib/compiler/types';
-import { getSourceFileOfNode } from '../../node_modules/plaxtony/lib/compiler/utils';
-import { getLineAndCharacterOfPosition } from '../../node_modules/plaxtony/lib/service/utils';
-import { Printer } from '../../node_modules/plaxtony/lib/compiler/printer';
-import { Store, S2WorkspaceWatcher } from '../../node_modules/plaxtony/lib/service/store';
-import { resolveArchiveDirectory, SC2Workspace, SC2Archive } from '../../node_modules/plaxtony/lib/sc2mod/archive';
+import * as gt from 'plaxtony/lib/compiler/types';
+import { getSourceFileOfNode } from 'plaxtony/lib/compiler/utils';
+import { getLineAndCharacterOfPosition } from 'plaxtony/lib/service/utils';
+import { Printer } from 'plaxtony/lib/compiler/printer';
+import { Store, S2WorkspaceWatcher } from 'plaxtony/lib/service/store';
+import { resolveArchiveDirectory, SC2Workspace, SC2Archive } from 'plaxtony/lib/sc2mod/archive';
 import * as stringSimilarity from 'string-similarity';
+
+function slugify(str: string) {
+    str = str.replace(/[_\\:<>]/g, '-');
+    str = str.replace('AI', 'Ai');
+    str = str.replace('UI', 'Ui');
+    str = str.replace(/[A-Z]+/g, (m) => '-' + m.toLowerCase());
+    str = str.replace(/(^[\-]+)|([\-]+$)/g, '');
+    str = str.replace(/[\/]+/g, '');
+    str = str.replace(/\s*\-+\s*/g, '-');
+    return str;
+}
 
 // TODO: use pre-generated database, instead of indexing data on runtime...
 
@@ -40,7 +51,7 @@ export default class GalaxyCommand extends MapsterCommand {
             name: 'galaxy',
             group: 'general',
             memberName: 'galaxy',
-            aliases: ['gal'],
+            aliases: ['gal', 'g'],
             description: 'Galaxy API',
             args: [
                 {
@@ -51,6 +62,8 @@ export default class GalaxyCommand extends MapsterCommand {
             ],
             argsCount: 1,
         });
+
+        setTimeout(async () => await this.loadup(), 1000 * 60 * 10);
     }
 
     protected async loadup() {
@@ -80,26 +93,20 @@ export default class GalaxyCommand extends MapsterCommand {
             title: sym.escapedName,
             description: '',
             color: 0x31D900,
-            url: 'https://github.com/Talv/sc2-data-trigger/tree/master' + filePath + '#L' + line,
-            footer: {
-                text: fileName + '#' + line,
-            },
+            url: 'http://mapster.talv.space/galaxy/reference/' + slugify(sym.escapedName),
         });
 
         if (metaDesc) {
             const matches = metaDesc.match(/^\*\*([^*]+)\*\*\s*/);
-            pembed.title = matches[1];
+            pembed.title = `:link: ${matches[1]}`;
             pembed.description = metaDesc.substr(matches[0].length);
         }
 
-        pembed.description += '\n```c\n' + this.printer.printNode(node) + '\n```';
-
-        if (node.kind === gt.SyntaxKind.FunctionDeclaration) {
-            const argDocs = this.store.s2metadata.getFunctionArgumentsDoc(sym.escapedName);
-            if (argDocs) {
-                pembed.description += '\n' + argDocs.join('\n');
-            }
+        let decl = node;
+        if (decl.kind === gt.SyntaxKind.FunctionDeclaration && (<gt.FunctionDeclaration>decl).body) {
+            decl = Object.assign({}, decl, {body: null});
         }
+        pembed.description += '\n```c\n' + this.printer.printNode(decl) + '\n```';
 
         return pembed;
     }

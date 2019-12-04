@@ -60,15 +60,15 @@ export default class HelpCommand extends MapsterCommand {
                 `}`;
                 if(commands[0].details) help += `\n**Details:** ${commands[0].details}`;
                 if(commands[0].examples) help += `\n**Examples:**\n${commands[0].examples.join('\n')}`;
-                messages.push(<Message>await msg.direct(help));
+                messages.push(<Message>await msg.reply(help));
             } else if (commands.length > 1) {
-                messages.push(<Message>await msg.direct(disambiguation(commands, 'commands')));
+                messages.push(<Message>await msg.reply(disambiguation(commands, 'commands')));
             } else {
-                messages.push(<Message>await msg.direct(`Unable to identify command.`));
+                messages.push(<Message>await msg.reply(`Unable to identify command.`));
             }
         }
         else {
-            messages.push(<Message>await msg.direct(stripIndents`
+            messages.push(<Message>await msg.reply(stripIndents`
                 To run a command in this DM, simply use ${Command.usage('command', null, null)} with no prefix.
 
                 Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.
@@ -86,18 +86,18 @@ export default class HelpCommand extends MapsterCommand {
             `, { split: true }));
         }
 
-        try {
-            if (msg.channel.type !== 'dm') {
-                // messages.push(<Message>await msg.reply('Sent you a DM with information.'));
-                await msg.react('✔');
-                if (msg.deletable) {
-                    await msg.delete(4000);
-                }
-            }
-        } catch(err) {
-            // messages.push(<Message>await msg.reply('Unable to send you the help DM. You probably have DMs disabled.'));
-            throw err;
-        }
+        // try {
+        //     if (msg.channel.type !== 'dm') {
+        //         // messages.push(<Message>await msg.reply('Sent you a DM with information.'));
+        //         await msg.react('✔');
+        //         if (msg.deletable) {
+        //             await msg.delete(4000);
+        //         }
+        //     }
+        // } catch(err) {
+        //     // messages.push(<Message>await msg.reply('Unable to send you the help DM. You probably have DMs disabled.'));
+        //     throw err;
+        // }
 
         return messages;
     }

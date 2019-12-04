@@ -9,16 +9,21 @@
     "strict": true,
     "strictNullChecks": false,
     "target": "es2017",
+    "lib": [
+      "es2017",
+      "dom",
+      "esnext.asynciterable"
+    ],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "sourceMap": true
   },
   "include": [
-      "src/**/*"
+      "src/**/*",
+      "test/**/*"
   ],
   "exclude": [
     "node_modules",
-    "lib",
-    "test"
+    "lib"
   ]
 }

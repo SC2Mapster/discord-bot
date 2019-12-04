@@ -87,6 +87,11 @@ export type SearchResult = {
     meta?: string;
 };
 
+function sanitize(s: string) {
+    s = s.replace(/(^|\s)https?:\/\/([\w+\.]+)/g, '$1');
+    return s;
+}
+
 function extractResults(body: string) {
     var results: SearchResult[] = [];
     var $ = cheerio.load(body);
@@ -112,6 +117,7 @@ function extractResults(body: string) {
             desc = desc.substr(m[0].length);
             // desc = desc.replace(/^<span class="f">[^\<]*<\/span>/, '');
         }
+        desc = sanitize(desc);
         desc = desc.replace(/\s*<b>[\.]*<\/b>\s*/g, ' ');
         desc = desc.replace(/<\/?(em|b)>/g, '**');
         desc = desc.replace(/\s*<br>\s*/g, ' ');

@@ -8,13 +8,13 @@ export class MessageEmbedField {
 }
 
 export class MessageEmbedAuthor {
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     name?: string;
 
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     url?: string;
 
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     iconUrl?: string;
 
     // @Column({ nullable: true })
@@ -27,72 +27,73 @@ export class MessageEmbedFooter {
     })
     text?: string;
 
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     iconUrl?: string;
 
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     proxyIconUrl?: string;
 }
 
 export class MessageEmbedImage {
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     url?: string;
 
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     proxyUrl?: string;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     width?: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     height?: number;
 }
 
 export class MessageEmbedVideo {
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     url?: string;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     width?: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     height?: number;
 }
 
 export class MessageEmbedProvider {
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     name?: string;
 
-    @Column({ nullable: true })
+    @Column('varchar', { nullable: true })
     url?: string;
 }
 
 @Entity()
 export class MessageEmbed {
     @PrimaryGeneratedColumn()
-    id: string;
+    id: number;
 
     @OneToOne(type => Message, msg => msg.embeds)
     @JoinColumn()
     message: Message;
 
-    @Column()
+    @Column('varchar', { nullable: true })
     title?: string;
 
-    @Column()
+    @Column('varchar')
     type?: string;
 
-    @Column('text')
+    @Column('text', { nullable: true })
     description?: string;
 
-    @Column()
+    @Column('varchar', { nullable: true })
     url?: string;
 
-    @Column()
+    @Column('int', { nullable: true })
     color?: number;
 
-    @Column('simple-json', { nullable: true })
-    fields?: MessageEmbedField[];
+    @Column('longtext', { nullable: true })
+    // fields?: MessageEmbedField[];
+    fields?: string;
 
     @Column(type => MessageEmbedFooter)
     footer?: MessageEmbedFooter;

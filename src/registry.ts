@@ -10,7 +10,7 @@ export abstract class Task {
     readonly client: MapsterBot;
     readonly info: TaskInfo;
 
-    constructor(bot: MapsterBot, info: TaskInfo) {
+    constructor(bot: MapsterBot, info: TaskInfo = {}) {
         this.client = bot;
         this.info = info;
     }

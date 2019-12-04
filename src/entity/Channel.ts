@@ -5,12 +5,12 @@ export class Channel {
     @PrimaryColumn('bigint')
     id: string;
 
-    @Column()
+    @Column('varchar')
     name: string;
 
-    @Column()
+    @Column('int')
     position: number;
 
-    @Column({ nullable: true })
+    @Column('text', { nullable: true })
     topic?: string;
 }

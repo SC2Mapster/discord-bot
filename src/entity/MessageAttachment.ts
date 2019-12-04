@@ -10,21 +10,21 @@ export class MessageAttachment {
     @JoinColumn()
     message: Message;
 
-    @Column()
+    @Column('varchar')
     filename: string;
 
-    @Column()
+    @Column('int')
     filesize: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     width?: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     height?: number;
 
-    @Column()
+    @Column('varchar')
     url: string;
 
-    @Column()
+    @Column('varchar')
     proxyUrl: string;
 }

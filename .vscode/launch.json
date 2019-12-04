@@ -8,11 +8,8 @@
             "type": "node",
             "request": "launch",
             "name": "Launch Program",
-            "args": ["-r", "ts-node/register", "${workspaceFolder}/src/start.ts"],
+            "args": ["${workspaceFolder}/lib/src/start.js"],
             "cwd": "${workspaceRoot}",
-            "outFiles": [
-                "${workspaceFolder}/lib/**/*.js"
-            ],
             "protocol": "inspector",
             "sourceMaps": true
         },

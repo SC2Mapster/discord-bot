@@ -1,7 +1,12 @@
 node_modules/
 logs/
+lib/
 out/
 .env
 settings.db
 sync.sh
+start.sh
 ormconfig.json
+archive-meta/
+.vscode/
+NOTES.md
