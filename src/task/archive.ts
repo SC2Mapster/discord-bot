@@ -13,7 +13,7 @@ export class ArchiveStore {
     em: EntityManager = getManager();
 
     public async updateChannel(dchan: ds.TextChannel) {
-        let chan = await this.em.findOneById(Channel, dchan.id);
+        let chan = await this.em.findOne(Channel, dchan.id);
         if (chan) return chan;
 
         chan = new Channel();
@@ -25,7 +25,7 @@ export class ArchiveStore {
     }
 
     public async updateUser(duser: ds.User) {
-        let user = await this.em.findOneById(User, duser.id);
+        let user = await this.em.findOne(User, duser.id);
         if (user) return user;
 
         user = new User();
@@ -39,7 +39,7 @@ export class ArchiveStore {
     }
 
     public async updateAttachment(dattachment: ds.MessageAttachment, msg?: Message) {
-        let attachment = await this.em.findOneById(MessageAttachment, dattachment.id);
+        let attachment = await this.em.findOne(MessageAttachment, dattachment.id);
         if (attachment) return attachment;
 
         attachment = new MessageAttachment();
@@ -58,12 +58,12 @@ export class ArchiveStore {
     }
 
     public async updateMessage(dmessage: ds.Message) {
-        let msg = await this.em.findOneById(Message, dmessage.id);
+        let msg = await this.em.findOne(Message, dmessage.id);
         if (!msg) {
             msg = new Message();
             msg.id = dmessage.id;
             msg.author = await this.updateUser(dmessage.author);
-            msg.channel = await this.em.findOneById(Channel, dmessage.channel.id);
+            msg.channel = await this.em.findOne(Channel, dmessage.channel.id);
             msg.createdAt = dmessage.createdAt;
         }
 
@@ -155,7 +155,7 @@ export class ArchiveStore {
     }
 
     public async softDeleteMessage(dmessage: ds.Message) {
-        let msg = await this.em.findOneById(Message, dmessage.id);
+        let msg = await this.em.findOne(Message, dmessage.id);
         if (!msg) {
             return;
         }
@@ -171,7 +171,7 @@ export class ArchiveManager extends Task {
         super(bot, {});
     }
 
-    public load() {
+    async load() {
         this.client.on('guildMemberAdd', async (dmember) => {
             await this.store.updateUser(dmember.user);
         });
@@ -211,7 +211,7 @@ export class ArchiveManager extends Task {
             for (const dchan of currentGuild.channels.values()) {
                 if (dchan.type !== 'text') continue;
                 await this.syncChannel(<ds.TextChannel>this.client.channels.get(dchan.id), {
-                    newerThan: new Sugar.Date(Date.now()).addDays(-2).raw,
+                    newerThan: new Sugar.Date(Date.now()).addDays(-1).raw,
                 });
             }
         }

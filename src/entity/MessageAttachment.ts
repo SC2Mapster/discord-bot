@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, OneToOne, JoinColumn, Column } from 'typeorm';
+import { Entity, PrimaryColumn, OneToOne, JoinColumn, Column, ManyToOne, Index } from 'typeorm';
 import { Message } from './Message';
 
 @Entity()
@@ -6,7 +6,11 @@ export class MessageAttachment {
     @PrimaryColumn('bigint')
     id: string;
 
-    @OneToOne(type => Message, msg => msg.attachments)
+    @ManyToOne(type => Message, msg => msg.attachments, {
+        onDelete: 'RESTRICT',
+        onUpdate: 'RESTRICT',
+    })
+    @Index()
     @JoinColumn()
     message: Message;
 

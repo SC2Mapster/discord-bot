@@ -8,7 +8,6 @@ import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError
 import * as schedule from 'node-schedule';
 import { User, TextChannel, Message, MessageOptions, Guild } from 'discord.js';
 import * as orm from 'typeorm';
-import { embedRecent } from './util/mapster';
 import { oentries } from './util/helpers';
 import { BnetPatchNotifierTask } from './task/bnetPatchNotifier';
 import 'reflect-metadata';
@@ -17,17 +16,16 @@ import { MapsterRecentTask } from './task/mapsterRecent';
 import { NotablePinTask } from './task/notablepin';
 import { MapsterCommonTask } from './task/mcommon';
 import { PasteTask } from './task/paste';
+import { ForumFeedTask } from './task/forumFeed';
 require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
 export const logger = new (winston.Logger)({
-    level: 'debug',
-
     transports: [
         new (winston.transports.Console)({
-            colorize: true,
+            colorize: false,
             prettyPrint: true,
-            level: 'debug',
+            level: 'error',
             timestamp: function() {
                 return sugar.Date.format(new Date(Date.now()), '{HH}:{mm}:{ss}.{SSS}');
             },
@@ -37,7 +35,7 @@ export const logger = new (winston.Logger)({
             prepend: true,
             datePattern: 'yyyy-MM-dd',
             dirname: 'logs',
-            level: 'info',
+            level: 'debug',
             logstash: false,
             json: false,
             stringify: true,
@@ -130,20 +128,23 @@ export class MapsterBot extends CommandoClient {
         });
     }
 
-    protected initialized() {
-        (new NotablePinTask(this).load());
-        (new MapsterCommonTask(this).load());
-        (new PasteTask(this).load());
+    protected async initialized() {
+        const availableTasks: typeof MapsterCommonTask[] = [
+            NotablePinTask,
+            MapsterCommonTask,
+            PasteTask,
+        ];
 
         if (process.env.ENV !== 'dev') {
-            this.reloadJobScheduler();
+            availableTasks.push(MapsterRecentTask);
+            availableTasks.push(ForumFeedTask);
+            availableTasks.push(BnetPatchNotifierTask);
+            availableTasks.push(ArchiveManager);
+        }
 
-            (new BnetPatchNotifierTask(this)).load();
-            (new MapsterRecentTask(this)).load();
-            (new ArchiveManager(this)).load();
-        }
-        else {
-        }
+        const loadedTasks = availableTasks.map(v => new v(this));
+        await Promise.all(loadedTasks.map(v => v.load()));
+        logger.info('All tasks loaded!');
     }
 
     protected logDeletedMessage(msg: Message) {
@@ -208,11 +209,11 @@ export abstract class MapsterCommand extends Command {
 export abstract class AdminCommand extends MapsterCommand {
     public hasPermission(userMsg: CommandMessage) {
         const adminIds = (<string>this.client.settings.get('admin.users-list', '')).split(',');
-        return this.client.isOwner(userMsg.author) || adminIds.indexOf(userMsg.author.id) !== -1 || userMsg.member.hasPermission('MANAGE_GUILD');
+        return this.client.isOwner(userMsg.author) || adminIds.indexOf(userMsg.author.id) !== -1 || userMsg.member.permissions.has('MANAGE_GUILD');
     }
 }
 export abstract class ModCommand extends AdminCommand {
     public hasPermission(userMsg: CommandMessage) {
-        return super.hasPermission(userMsg) || userMsg.member.hasPermission('MANAGE_CHANNELS');
+        return super.hasPermission(userMsg) || userMsg.member.permissions.has('MANAGE_CHANNELS');
     }
 }

@@ -1,8 +1,8 @@
 import { CommandMessage } from 'discord.js-commando';
-import { MapsterBot, AdminCommand, ModCommand, MapsterCommand } from '../bot';
+import { MapsterBot, AdminCommand, ModCommand, MapsterCommand, logger } from '../bot';
 import { Message, RichEmbed, GuildMember, TextChannel, User, Channel } from 'discord.js';
 import { parseMdPayload } from '../util/richmd';
-import { sleep } from '../util/helpers';
+import { sleep, urlOfMessage } from '../util/helpers';
 
 interface DraftMessage {
     userMsg: Message;
@@ -70,8 +70,8 @@ export class MapNewsPostPreview extends MapsterCommand {
         this.client.on('message', this.onMessage.bind(this));
     }
 
-    protected async setupChannelForUser(channel: TextChannel, user: User) {
-        await channel.sendMessage(`<@${user.id}>,\n\n${this.client.settings.get('mn.welcome-msg', 'Provide content for your post.')}`);
+    protected async setupChannelListenerForUser(channel: TextChannel, user: User) {
+        await channel.send(`${this.client.settings.get('mn.template-msg', 'Provide content for your post.')}`);
         this.prepRequests.set(user.id, {
             channel: channel,
             user: user,
@@ -91,28 +91,54 @@ export class MapNewsPostPreview extends MapsterCommand {
 
             // if not ticket
             if (textChan.parent.name !== 'Tickets') break;
+
             const botsRole = textChan.guild.roles.get('373924172847382539');
-            await textChan.overwritePermissions(botsRole, {
-                MANAGE_CHANNELS: true,
-                MANAGE_ROLES_OR_PERMISSIONS: true,
-            });
+            if (botsRole) {
+                await textChan.overwritePermissions(botsRole, {
+                    MANAGE_CHANNELS: true,
+                    MANAGE_ROLES_OR_PERMISSIONS: true,
+                    ATTACH_FILES: true,
+                    EMBED_LINKS: true,
+                });
+            }
 
             // if not news ticket
-            if (!textChan.name.match(/^\d+-news(\-)?(.+)?$/)) break;
+            const nameMatches = textChan.name.match(/^(\d+)-news-?(.*)$/u);
+            if (!nameMatches) break;
 
             const everyoneRole = textChan.guild.roles.get('271701880885870594');
-            await textChan.overwritePermissions(everyoneRole, {
-                SEND_MESSAGES: false,
-                READ_MESSAGES: false,
-                ATTACH_FILES: false,
-            });
+            if (everyoneRole) {
+                await textChan.overwritePermissions(everyoneRole, {
+                    SEND_MESSAGES: false,
+                    READ_MESSAGES: false,
+                    ATTACH_FILES: false,
+                    EMBED_LINKS: false,
+                });
+            }
 
             const mentionedUserId = firstMsg.embeds[0].description.match(/^Welcome <@(\d+)>/)[1];
             const mentionedUser = (await textChan.guild.fetchMember(mentionedUserId)).user;
             await firstMsg.delete();
-            await this.setupChannelForUser(textChan, mentionedUser);
-            break;
+
+            const defaultTpl = [
+                `Before we get started, here are some generic commands specific to this channel.\n\n`,
+                `Command to close the ticket:\n`,
+                '`!ticket close`, or `!ticket close reason for closing here`\n\n',
+                'Command to add another user to the ticket:\n',
+                '`!ticket adduser @user`\n\n',
+                'Command to start a new draft for the post:\n',
+                '`!mn.draft`'
+            ].join('');
+            const lmsg = await textChan.send(`<@${mentionedUser.id}>,\n\n${this.client.settings.get('mn.welcome-msg', defaultTpl)}`) as Message;
+            await lmsg.pin();
+            await this.setupChannelListenerForUser(textChan, mentionedUser);
+
+            await textChan.setName(`${nameMatches[1]}-news-${nameMatches[2] ?? ''}-${mentionedUser.username}`);
+
+            return;
         }
+
+        logger.error('mapnews onChannelCreate timeout');
     }
 
     protected async onMessage(msg: Message) {
@@ -121,6 +147,13 @@ export class MapNewsPostPreview extends MapsterCommand {
         this.prepRequests.delete(msg.author.id);
 
         const botMsg = await msg.channel.send(createNewsEmbed(msg.content, msg.author)) as Message;
+        await botMsg.pin();
+
+        const targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('mn.channel', null));
+        if (targetChannel) {
+            await msg.channel.send(`Moderators: use \`!mn.post ${msg.id} #${targetChannel.name}\` to accept this post.`);
+        }
+
         this.draftMessages.set(msg.id, {
             userMsg: msg,
             botMsg: botMsg,
@@ -134,7 +167,7 @@ export class MapNewsPostPreview extends MapsterCommand {
     }
 
     public async run(msg: CommandMessage) {
-        this.setupChannelForUser(msg.channel as TextChannel, msg.author);
+        this.setupChannelListenerForUser(msg.channel as TextChannel, msg.author);
         return [] as Message[];
     }
 }
@@ -194,8 +227,9 @@ export class MapNewsPostCommand extends ModCommand {
         }
         else {
             finalMessage = await targetChannel.send(`<@${author.id}>`, embed) as Message;
+            await finalMessage.react('⭐');
         }
 
-        return msg.reply(`Done. MsgID: ${finalMessage.id}`);
+        return msg.reply(`Done. ${urlOfMessage(finalMessage)}`);
     }
 }

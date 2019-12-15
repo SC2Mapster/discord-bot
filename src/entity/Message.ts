@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, OneToOne, JoinColumn, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryColumn, OneToOne, JoinColumn, Column, PrimaryGeneratedColumn, OneToMany, ManyToOne, Index } from 'typeorm';
 import { User } from './User';
 import { Channel } from './Channel';
 import { MessageEmbed } from './MessageEmbed';
@@ -20,7 +20,11 @@ export class Message {
     @PrimaryColumn('bigint')
     id: string;
 
-    @OneToOne(type => Channel)
+    @ManyToOne(type => Channel, {
+        onDelete: 'RESTRICT',
+        onUpdate: 'RESTRICT',
+    })
+    @Index()
     @JoinColumn()
     channel: Channel;
 
@@ -29,9 +33,12 @@ export class Message {
     })
     type: MessageType | string;
 
-    @OneToOne(type => User, {
+    @ManyToOne(type => User, {
+        onDelete: 'RESTRICT',
+        onUpdate: 'RESTRICT',
         nullable: true,
     })
+    @Index()
     @JoinColumn()
     author: User;
 
@@ -55,15 +62,13 @@ export class Message {
     content: string;
 
     @OneToMany(type => MessageEmbed, embed => embed.message, {
-        cascadeInsert: true,
-        cascadeUpdate: true,
+        cascade: true,
         eager: true,
     })
     embeds: MessageEmbed[];
 
     @OneToMany(type => MessageAttachment, attachment => attachment.message, {
-        cascadeInsert: true,
-        cascadeUpdate: true,
+        cascade: true,
         eager: true,
     })
     attachments: MessageAttachment[];

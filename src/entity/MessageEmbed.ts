@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, OneToOne, JoinColumn, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, PrimaryColumn, OneToOne, JoinColumn, Column, PrimaryGeneratedColumn, ManyToOne, Index } from 'typeorm';
 import { Message } from './Message';
 
 export class MessageEmbedField {
@@ -72,7 +72,11 @@ export class MessageEmbed {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @OneToOne(type => Message, msg => msg.embeds)
+    @ManyToOne(type => Message, msg => msg.embeds, {
+        onDelete: 'RESTRICT',
+        onUpdate: 'RESTRICT',
+    })
+    @Index()
     @JoinColumn()
     message: Message;
 

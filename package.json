@@ -1,6 +1,6 @@
 {
   "name": "sc2mapster-discord-bot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "",
   "license": "MIT",
   "author": {
@@ -33,7 +33,7 @@
     "express": "^4.16.3",
     "fs-extra": "^7.0.0",
     "html-entities": "^1.2.1",
-    "imgur": "^0.2.1",
+    "imgur": "^0.3.1",
     "mysql": "^2.15.0",
     "nan": "^2.10.0",
     "node-schedule": "^1.3.0",
@@ -43,18 +43,21 @@
     "reflect-metadata": "^0.1.12",
     "request": "^2.83.0",
     "request-promise": "^4.2.2",
-    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#66f5d269d2457dea6963f874b39835ad955fcfac",
+    "sanitize-html": "^1.20.1",
+    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#173c015920934edc2139a30594b69d7c7ed662d8",
     "sqlite": "^2.9.3",
     "string-similarity": "^1.2.0",
     "sugar": "^2.0.4",
     "turndown": "^4.0.1",
-    "typeorm": "^0.1.21",
+    "typeorm": "^0.2.20",
     "winston": "^2.4.0",
     "winston-daily-rotate-file": "^1.7.2"
   },
   "devDependencies": {
+    "@octokit/rest": "^15.2.6",
     "@types/chai": "^4.1.2",
     "@types/cheerio": "^0.22.7",
+    "@types/common-tags": "^1.4.0",
     "@types/dotenv": "^4.0.2",
     "@types/express": "^4.16.0",
     "@types/fs-extra": "^5.0.4",
@@ -64,14 +67,14 @@
     "@types/node-schedule": "^1.2.2",
     "@types/nunjucks": "^3.0.0",
     "@types/request-promise": "^4.1.41",
-    "@types/winston": "^2.3.7",
-    "@octokit/rest": "^15.2.6",
-    "@types/common-tags": "^1.4.0",
+    "@types/sanitize-html": "^1.20.2",
+    "@types/string-similarity": "^3.0.0",
     "@types/turndown": "^5.0.0",
+    "@types/winston": "^2.3.7",
     "chai": "^4.1.2",
     "mocha": "^5.0.0",
     "source-map-support": "^0.5.3",
     "ts-node": "^8.4.1",
-    "typescript": "^3.6.3"
+    "typescript": "^3.7.3"
   }
 }

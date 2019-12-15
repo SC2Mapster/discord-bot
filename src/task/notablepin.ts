@@ -13,12 +13,12 @@ export class NotablePinTask extends Task {
         return isNotable;
     }
 
-    load() {
+    async load() {
         this.client.on('messageReactionAdd', async (msgReaction, author) => {
             if (!(await this.isMemberEligible(msgReaction, author))) return;
             if (!msgReaction.message.pinned && msgReaction.message.pinnable) {
                 await msgReaction.message.pin();
-                await msgReaction.message.channel.sendMessage(`Message ${msgReaction.message.id} has been pinned!`, { reply: author })
+                await msgReaction.message.channel.send(`Message ${msgReaction.message.id} has been pinned!`, { reply: author })
             }
         })
 
@@ -27,7 +27,7 @@ export class NotablePinTask extends Task {
             if (msgReaction.count > 0) return;
             if (msgReaction.message.pinned && msgReaction.message.pinnable) {
                 await msgReaction.message.unpin();
-                await msgReaction.message.channel.sendMessage(`Message ${msgReaction.message.id} has been unpinned!`, { reply: author })
+                await msgReaction.message.channel.send(`Message ${msgReaction.message.id} has been unpinned!`, { reply: author })
             }
         })
     }

@@ -156,10 +156,10 @@ export class AdminSchedulerInvokeCommand extends AdminCommand {
         const job = schedule.scheduledJobs[args.task];
         if (job) {
             (<any>job).invoke(new Date());
-            return msg.say('ok');
+            return msg.say('Invoked..');
         }
         else {
-            return msg.say('not found');
+            return msg.say('Task not found');
         }
     }
 }

@@ -4,7 +4,7 @@ import { FileOptions } from 'discord.js';
 import { logger } from '../bot';
 
 export class PasteTask extends Task {
-    load() {
+    async load() {
         this.client.on('message', async (msg) => {
             if (msg.author.bot) return;
             if (msg.type !== 'DEFAULT') return;

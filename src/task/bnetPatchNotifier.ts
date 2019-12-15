@@ -27,7 +27,7 @@ export class BnetPatchNotifierTask extends Task {
         super(bot, {});
     }
 
-    load() {
+    async load() {
         this.state = this.client.settings.get(this.constructor.name + '_state', <S2PatchState>{
             current: {
                 build: 76811,
@@ -39,7 +39,6 @@ export class BnetPatchNotifierTask extends Task {
         });
 
         this.job = schedule.scheduleJob(this.constructor.name, `*/${this.client.settings.get('bnetPatchNotifier.pollInterval', 5)} * * * *`, this.tick.bind(this));
-        this.job.invoke();
     }
 
     private async persistState() {

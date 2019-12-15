@@ -15,5 +15,6 @@ export abstract class Task {
         this.info = info;
     }
 
-    abstract load(): void;
+    abstract async load(): Promise<void>;
+    async unload() {}
 }

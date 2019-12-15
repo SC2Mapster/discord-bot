@@ -5,16 +5,9 @@ import { Message, RichEmbed, TextChannel } from 'discord.js';
 import * as imgur from 'imgur';
 import * as stringSimilarity from 'string-similarity';
 import { logger } from '../bot';
-
-const mBaseURL = 'https://www.sc2mapster.com';
+import { MapsterConnection, mBaseURL } from 'sc2mapster-crawler';
 
 let mconn: mapster.MapsterConnection;
-process.on('beforeExit', async (code) => {
-    if (!mconn) {
-        await mconn.close();
-        mconn = void 0;
-    }
-});
 
 export async function getActiveConnection() {
     if (!mconn) {
@@ -218,22 +211,22 @@ export async function prepareEmbedProject(project: mapster.ProjectOverview) {
     return embedProject(project);
 }
 
-export async function embedRecent(refdate: Date) {
-    const conn = await getActiveConnection();
-    let plist = await getLatestProjects(conn, 'assets', refdate)
-    plist = plist.concat(await getLatestProjects(conn, 'maps', refdate));
+export async function embedRecent(opts: { refdate: Date, conn?: MapsterConnection }) {
+    const conn = opts.conn ?? await getActiveConnection();
+    let plist = await getLatestProjects(conn, 'assets', opts.refdate)
+    plist = plist.concat(await getLatestProjects(conn, 'maps', opts.refdate));
 
     const embeds: RichEmbed[] = [];
     let nextRefDate: Date = null;
     for (const project of plist.reverse()) {
-        if (project.createdAt > refdate) {
+        if (project.createdAt > opts.refdate) {
             embeds.push(await prepareEmbedProject(project));
             if (nextRefDate === null || project.createdAt > nextRefDate) {
                 nextRefDate = new Date(project.createdAt);
             }
         }
         const pimg = await conn.getProjectImages(project.base.name)
-        for (const pfile of (await getLatestProjectFiles(conn, project.base.name, refdate)).reverse()) {
+        for (const pfile of (await getLatestProjectFiles(conn, project.base.name, opts.refdate)).reverse()) {
             embeds.push(await prepareEmbedFile(pfile, pimg.images));
             if (nextRefDate === null || pfile.updatedAt > nextRefDate) {
                 nextRefDate = new Date(pfile.updatedAt);
@@ -269,4 +262,58 @@ export function embedForumThread(fthread: mapster.ForumThread) {
         }
     }
     return embed;
+}
+
+export interface MapsterForumSubmission {
+    kind: 'new_thread' | 'new_reply';
+    post: mapster.ForumPost;
+}
+
+export interface MapsterLatestResults {
+    next: Date;
+    entries: MapsterForumSubmission[];
+}
+
+export async function fetchLatestForum(opts: { refdate: Date, conn?: MapsterConnection }) {
+    const conn = opts.conn ?? await getActiveConnection();
+    const recentThreads = await conn.getForumRecent();
+
+    logger.debug(`recentThreads: ${recentThreads.length}`);
+
+    const lresults: MapsterLatestResults = {
+        next: void 0,
+        entries: [],
+    };
+
+    for (const currThread of recentThreads) {
+        if (opts.refdate >= currThread.lastPostedAt) continue;
+
+        const plist = conn.getForumPostList(
+            currThread.directLink,
+            (pageInfo, results) => {
+                for (const record of results) {
+                    if (opts.refdate >= record.date) return false;
+                }
+                return true;
+            },
+            {
+                pFrom: currThread.pages,
+                pTo: 1,
+            }
+        );
+        for await (const item of plist) {
+            if (opts.refdate >= item.date) continue;
+            lresults.entries.push({
+                kind: 'new_reply',
+                post: item,
+            });
+        }
+    }
+
+    if (lresults.entries.length) {
+        lresults.entries = lresults.entries.sort((a, b) => a.post.date.getTime() - b.post.date.getTime());
+        lresults.next = lresults.entries[lresults.entries.length - 1].post.date;
+    }
+
+    return lresults;
 }
