@@ -34,11 +34,11 @@ function createNewsEmbed(content: string, author: User) {
 
     if (mData.fields.length) {
         embed.title = mData.fields[0].title;
-        embed.description = mData.fields[0].content;
+        embed.description = mData.fields[0]?.content ?? ' ';
 
         mData.fields = mData.fields.slice(1);
         for (const field of mData.fields) {
-            embed.addField(field.title, field.content || '');
+            embed.addField(field.title, field?.content ?? ' ');
         }
     }
 
@@ -87,10 +87,10 @@ export class MapNewsPostPreview extends MapsterCommand {
             await sleep(100);
             const firstMsg = textChan.lastMessage;
             if (!firstMsg) continue;
-            if (!firstMsg.author.bot || !firstMsg.embeds.length) break;
+            if (!firstMsg.author.bot || !firstMsg.embeds.length) return;
 
             // if not ticket
-            if (textChan.parent.name !== 'Tickets') break;
+            if (textChan.parent.name !== 'Tickets') return;
 
             const botsRole = textChan.guild.roles.get('373924172847382539');
             if (botsRole) {
@@ -104,7 +104,7 @@ export class MapNewsPostPreview extends MapsterCommand {
 
             // if not news ticket
             const nameMatches = textChan.name.match(/^(\d+)-news-?(.*)$/u);
-            if (!nameMatches) break;
+            if (!nameMatches) return;
 
             const everyoneRole = textChan.guild.roles.get('271701880885870594');
             if (everyoneRole) {

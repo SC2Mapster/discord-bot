@@ -1,3 +1,4 @@
+import 'mocha';
 import { assert } from 'chai';
 import { parseMdPayload } from '../src/util/richmd';
 

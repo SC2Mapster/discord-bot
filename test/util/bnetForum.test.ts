@@ -1,3 +1,4 @@
+import 'mocha';
 import { assert } from 'chai';
 import { fetchLatestInSubforum } from '../../src/util/bnetForum';
 

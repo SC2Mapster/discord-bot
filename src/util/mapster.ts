@@ -5,16 +5,22 @@ import { Message, RichEmbed, TextChannel } from 'discord.js';
 import * as imgur from 'imgur';
 import * as stringSimilarity from 'string-similarity';
 import { logger } from '../bot';
-import { MapsterConnection, mBaseURL } from 'sc2mapster-crawler';
 
 let mconn: mapster.MapsterConnection;
-
 export async function getActiveConnection() {
     if (!mconn) {
-        mconn = new mapster.MapsterConnection();
-        await mconn.setup();
+        mconn = await createNewConnection();
     }
     return mconn;
+}
+
+export async function createNewConnection() {
+    const ncon = new mapster.MapsterConnection();
+    await ncon.setup({
+        logger: logger,
+        captcha2Token: process.env.CAPTCHA2_TOKEN,
+    });
+    return ncon;
 }
 
 export function handleMapsterException(e: Error, msg: CommandMessage) {
@@ -90,10 +96,10 @@ export function embedProject(project: mapster.ProjectOverview) {
         author: {
             name: project.owner.title,
             icon_url: project.owner.profileThumbUrl,
-            url: `${mBaseURL}/members/${project.owner.name}`,
+            url: `${mapster.mBaseURL}/members/${project.owner.name}`,
         },
         color: 0xE37C22,
-        url: `${mBaseURL}/projects/${project.base.name}`,
+        url: `${mapster.mBaseURL}/projects/${project.base.name}`,
         timestamp: project.updatedAt,
         footer: {
             text: `Projects / ${project.base.rootCategory}`,
@@ -134,10 +140,10 @@ export function embedFile(pfile: mapster.ProjectFile, frontImage?: string) {
         author: {
             name: pfile.uploadedBy.title,
             icon_url: pfile.uploadedBy.profileThumbUrl,
-            url: `${mBaseURL}/members/${pfile.uploadedBy.name}`,
+            url: `${mapster.mBaseURL}/members/${pfile.uploadedBy.name}`,
         },
         color: 0xE37C22,
-        url: `${mBaseURL}/projects/${pfile.base.name}/files/${pfile.id}`,
+        url: `${mapster.mBaseURL}/projects/${pfile.base.name}/files/${pfile.id}`,
         timestamp: pfile.updatedAt,
         footer: {
             text: `${pfile.base.rootCategory} / ${pfile.base.title}`,
@@ -211,7 +217,7 @@ export async function prepareEmbedProject(project: mapster.ProjectOverview) {
     return embedProject(project);
 }
 
-export async function embedRecent(opts: { refdate: Date, conn?: MapsterConnection }) {
+export async function embedRecent(opts: { refdate: Date, conn?: mapster.MapsterConnection }) {
     const conn = opts.conn ?? await getActiveConnection();
     let plist = await getLatestProjects(conn, 'assets', opts.refdate)
     plist = plist.concat(await getLatestProjects(conn, 'maps', opts.refdate));
@@ -246,7 +252,7 @@ export function embedForumThread(fthread: mapster.ForumThread) {
         author: {
             name: fthread.posts[0].author.title,
             icon_url: fthread.posts[0].author.profileThumbUrl,
-            url: `${mBaseURL}/members/${fthread.posts[0].author.name}`,
+            url: `${mapster.mBaseURL}/members/${fthread.posts[0].author.name}`,
         },
         color: 0xE37C22,
         url: fthread.url,
@@ -274,7 +280,7 @@ export interface MapsterLatestResults {
     entries: MapsterForumSubmission[];
 }
 
-export async function fetchLatestForum(opts: { refdate: Date, conn?: MapsterConnection }) {
+export async function fetchLatestForum(opts: { refdate: Date, conn?: mapster.MapsterConnection }) {
     const conn = opts.conn ?? await getActiveConnection();
     const recentThreads = await conn.getForumRecent();
 

@@ -1,3 +1,4 @@
+import 'mocha';
 import { assert } from 'chai';
 import { getVersionInfo } from '../src/util/ngdp';
 

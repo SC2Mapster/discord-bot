@@ -21,6 +21,8 @@ require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
 export const logger = new (winston.Logger)({
+    level: 'debug',
+    handleExceptions: true,
     transports: [
         new (winston.transports.Console)({
             colorize: false,
@@ -35,7 +37,6 @@ export const logger = new (winston.Logger)({
             prepend: true,
             datePattern: 'yyyy-MM-dd',
             dirname: 'logs',
-            level: 'debug',
             logstash: false,
             json: false,
             stringify: true,
@@ -62,14 +63,14 @@ export class MapsterBot extends CommandoClient {
         this.on('error', logger.error);
         this.on('warn', logger.warn);
         this.on('debug', logger.debug);
-        this.on('ready', () => {
+        this.on('ready', async () => {
             logger.info(`Logged in as ${this.user.tag} (${this.user.id})`);
-            this.user.setActivity('!help', {
+            await this.user.setActivity('!help', {
                 type: 'LISTENING',
             });
         });
         this.on('disconnect', () => logger.warn('Disconnected!'));
-        this.on('reconnect', () => logger.warn('Reconnecting...'));
+        this.on('reconnecting', () => logger.warn('Reconnecting...'));
         this.on('commandRun', (cmd, p, msg) => {
             logger.info(`Command run ${cmd.memberName}, Author '${msg.author.username}', msg: ${msg.content}`);
         });

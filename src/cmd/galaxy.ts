@@ -2,12 +2,12 @@ import { Command, CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed } from 'discord.js';
 import { MapsterBot, MapsterCommand } from '../bot';
 import * as path from 'path';
-import * as gt from 'plaxtony/lib/compiler/types';
-import { getSourceFileOfNode } from 'plaxtony/lib/compiler/utils';
-import { getLineAndCharacterOfPosition } from 'plaxtony/lib/service/utils';
-import { Printer } from 'plaxtony/lib/compiler/printer';
-import { Store, S2WorkspaceWatcher } from 'plaxtony/lib/service/store';
-import { resolveArchiveDirectory, SC2Workspace, SC2Archive } from 'plaxtony/lib/sc2mod/archive';
+import * as gt from 'plaxtony/lib/src/compiler/types';
+import { getSourceFileOfNode } from 'plaxtony/lib/src/compiler/utils';
+import { getLineAndCharacterOfPosition } from 'plaxtony/lib/src/service/utils';
+import { Printer } from 'plaxtony/lib/src/compiler/printer';
+import { Store, S2WorkspaceWatcher } from 'plaxtony/lib/src/service/store';
+import { resolveArchiveDirectory, SC2Workspace, SC2Archive } from 'plaxtony/lib/src/sc2mod/archive';
 import * as stringSimilarity from 'string-similarity';
 
 function slugify(str: string) {
@@ -35,7 +35,7 @@ async function prepareStore(directory: string, modSources: string[]) {
     });
     await ws.watch();
     for (const ws of workspaces) {
-        await store.updateS2Workspace(ws, 'enUS');
+        await store.updateS2Workspace(ws);
     }
     return store;
 }

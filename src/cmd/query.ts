@@ -2,7 +2,6 @@ import { Command, CommandMessage } from 'discord.js-commando';
 import { Message, RichEmbed, TextChannel, GuildResolvable } from 'discord.js';
 import * as discord from 'discord.js';
 import * as util from 'util';
-import * as mapster from 'sc2mapster-crawler';
 import { stripIndents } from 'common-tags';
 import { MapsterBot, MapsterCommand } from '../bot';
 import { embedProject, embedFile, embedForumThread, prepareEmbedFile, getActiveConnection } from '../util/mapster';

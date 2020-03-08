@@ -1,6 +1,6 @@
 import * as url from 'url';
 import * as google from './google';
-import * as request from 'request-promise';
+import * as request from 'request-promise-native';
 import * as cheerio from 'cheerio';
 import * as stringSimilarity from 'string-similarity';
 

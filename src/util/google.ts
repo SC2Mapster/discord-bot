@@ -1,8 +1,8 @@
-import * as request from 'request-promise';
+import * as request from 'request-promise-native';
+import { StatusCodeError } from 'request-promise-native/errors';
 import * as cheerio from 'cheerio';
 import * as url from 'url';
 import * as htmlEntities from 'html-entities';
-import { StatusCodeError } from 'request-promise/errors';
 
 const ehtml = new htmlEntities.Html5Entities();
 

@@ -2,7 +2,7 @@ import * as schedule from 'node-schedule';
 import { RichEmbed, Message, TextChannel } from 'discord.js';
 import { MapsterBot, logger } from '../bot';
 import { Task } from '../registry';
-import { embedRecent } from '../util/mapster';
+import { embedRecent, createNewConnection } from '../util/mapster';
 import { MapsterConnection } from 'sc2mapster-crawler';
 
 export class MapsterRecentTask extends Task {
@@ -15,11 +15,10 @@ export class MapsterRecentTask extends Task {
 
     async load() {
         if (!this.mconn) {
-            this.mconn = new MapsterConnection();
-            await this.mconn.setup();
+            this.mconn = await createNewConnection();
         }
 
-        this.job = schedule.scheduleJob(this.constructor.name, '*/6 * * * *', this.update.bind(this));
+        this.job = schedule.scheduleJob(this.constructor.name, '*/30 * * * *', this.update.bind(this));
     }
 
     async unload() {

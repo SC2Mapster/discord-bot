@@ -1,3 +1,4 @@
+import 'mocha';
 import { assert } from 'chai';
 import * as google from '../src/util/google';
 import * as query from '../src/util/query';

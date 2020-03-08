@@ -5,12 +5,13 @@ import { RichEmbed, Message, TextChannel } from 'discord.js';
 import { MapsterBot, logger } from '../bot';
 import { Task } from '../registry';
 import { fetchLatestInSubforum, BnetForumSubmission } from '../util/bnetForum';
-import { fetchLatestForum, MapsterForumSubmission } from '../util/mapster';
+import { fetchLatestForum, MapsterForumSubmission, createNewConnection } from '../util/mapster';
 import { MapsterConnection } from 'sc2mapster-crawler';
 
 export class ForumFeedTask extends Task {
-    job: schedule.Job;
+    jobs: schedule.Job[] = [];
     mconn: MapsterConnection;
+    targetChannel: TextChannel;
 
     constructor(bot: MapsterBot) {
         super(bot, {});
@@ -18,11 +19,17 @@ export class ForumFeedTask extends Task {
 
     async load() {
         if (!this.mconn) {
-            this.mconn = new MapsterConnection();
-            await this.mconn.setup();
+            this.mconn = await createNewConnection();
         }
 
-        this.job = schedule.scheduleJob(this.constructor.name, '*/5 * * * *', this.update.bind(this));
+        this.targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('fm-feed.channel', null));
+        if (!this.targetChannel) {
+            logger.warning(`Channel not configured`);
+            return;
+        }
+
+        this.jobs.push(schedule.scheduleJob(`${this.constructor.name}_${this.handleBnet.name}`, '*/5 * * * *', this.handleBnet.bind(this)));
+        this.jobs.push(schedule.scheduleJob(`${this.constructor.name}_${this.handleMapster.name}`, '*/13 * * * *', this.handleMapster.bind(this)));
     }
 
     async unload() {
@@ -32,20 +39,9 @@ export class ForumFeedTask extends Task {
         }
     }
 
-    protected async update(fireDate: Date) {
-        logger.info('ForumFeedTask::update');
+    protected async handleBnet(fireDate: Date) {
+        logger.info('ForumFeedTask::bnet');
 
-        const targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('fm-feed.channel', null));
-        if (!targetChannel) {
-            logger.warning(`Channel not configured`);
-            return;
-        }
-
-        await this.handleMapster(targetChannel);
-        await this.handleBnet(targetChannel);
-    }
-
-    protected async handleBnet(targetChannel: TextChannel) {
         const prevSyncTime = new Date(Number(this.client.settings.get('fm-feed.bnet.last-time', Date.now() - (1000 * 3600 * 24 * 7))));
         let nextSyncTime = prevSyncTime;
 
@@ -62,7 +58,7 @@ export class ForumFeedTask extends Task {
             logger.debug(`category: ${catKey} ; ${ctRes.entries.length}`);
 
             for (const entry of ctRes.entries) {
-                await targetChannel.send(prepareBnetEmbed(entry, catName));
+                await this.targetChannel.send(prepareBnetEmbed(entry, catName));
             }
 
             if (ctRes.next > nextSyncTime) {
@@ -73,7 +69,9 @@ export class ForumFeedTask extends Task {
         }
     }
 
-    protected async handleMapster(targetChannel: TextChannel) {
+    protected async handleMapster(fireDate: Date) {
+        logger.info('ForumFeedTask::mapster');
+
         const prevSyncTime = new Date(Number(this.client.settings.get('fm-feed.mapster.last-time', Date.now() - (1000 * 3600 * 24 * 7))));
         let nextSyncTime = prevSyncTime;
 
@@ -82,9 +80,12 @@ export class ForumFeedTask extends Task {
             conn: this.mconn,
         });
 
+        logger.debug(`handleMapster: ${res.entries.length} ; date = ${res.next?.toUTCString()}`);
+
+
         if (res.entries.length) {
             for (const entry of res.entries) {
-                await targetChannel.send(prepareMapsterEmbed(entry));
+                await this.targetChannel.send(prepareMapsterEmbed(entry));
             }
 
             if (res.next > nextSyncTime) {

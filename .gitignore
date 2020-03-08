@@ -3,6 +3,7 @@ logs/
 lib/
 out/
 .env
+.pupdata/
 settings.db
 sync.sh
 start.sh

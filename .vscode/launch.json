@@ -20,13 +20,14 @@
             "program": "${workspaceRoot}/node_modules/.bin/_mocha",
             "args": [
                 "--opts", "mocha.opts",
-                "--grep", "Query Parse"
+                "--grep", "${input:testName}"
             ],
             "cwd": "${workspaceRoot}",
             "protocol": "inspector",
             "outFiles": [
                 "${workspaceRoot}/lib/**/*.js"
-            ]
+            ],
+            "sourceMaps": true
         }
     ]
 }
