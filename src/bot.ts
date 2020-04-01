@@ -1,13 +1,13 @@
 import * as path from 'path';
 import * as util from 'util';
-import * as winston from 'winston';
 import * as fs from 'fs';
-import * as sugar from 'sugar';
 import * as sqlite from 'sqlite';
 import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage, CommandInfo } from 'discord.js-commando';
-import * as schedule from 'node-schedule';
 import { User, TextChannel, Message, MessageOptions, Guild } from 'discord.js';
 import * as orm from 'typeorm';
+import * as winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
+
 import { oentries } from './util/helpers';
 import { BnetPatchNotifierTask } from './task/bnetPatchNotifier';
 import 'reflect-metadata';
@@ -17,29 +17,46 @@ import { NotablePinTask } from './task/notablepin';
 import { MapsterCommonTask } from './task/mcommon';
 import { PasteTask } from './task/paste';
 import { ForumFeedTask } from './task/forumFeed';
-require('winston-daily-rotate-file');
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
-export const logger = new (winston.Logger)({
+export const logger = winston.createLogger({
     level: 'debug',
-    handleExceptions: true,
-    transports: [
-        new (winston.transports.Console)({
-            colorize: false,
-            prettyPrint: true,
-            level: 'error',
-            timestamp: function() {
-                return sugar.Date.format(new Date(Date.now()), '{HH}:{mm}:{ss}.{SSS}');
-            },
+    format: winston.format.combine(
+        winston.format.timestamp({
+            alias: 'time',
+            format: 'HH:mm:ss.SSS',
         }),
-        new (winston.transports.DailyRotateFile)({
-            filename: '.log',
-            prepend: true,
-            datePattern: 'yyyy-MM-dd',
+        winston.format.prettyPrint({ colorize: false, depth: 2 }),
+        winston.format.printf(info => {
+            const out = [
+                `${info.time} ${info.level.substr(0, 3).toUpperCase()} ${info.message}`
+            ];
+
+            const splat: any[] = info[<any>Symbol.for('splat')];
+            if (Array.isArray(splat)) {
+                const dump = splat.length === 1 ? splat.pop() : splat;
+                out.push(util.inspect(dump, {
+                    colors: false,
+                    depth: 3,
+                    compact: true,
+                    maxArrayLength: 500,
+                    breakLength: 140,
+                }));
+            }
+
+            return out.join('\n');
+        }),
+    ),
+    transports: [
+        new winston.transports.Console({
+            level: process.env.ENV !== 'dev' ? 'error' : 'debug',
+            handleExceptions: true,
+        }),
+        new DailyRotateFile({
+            filename: '%DATE%.log',
+            datePattern: 'YYYY-MM-DD',
             dirname: 'logs',
-            logstash: false,
             json: false,
-            stringify: true,
         }),
     ],
 });
@@ -49,7 +66,7 @@ export type MapsterOptions = CommandoClientOptions & {
 };
 
 export class MapsterBot extends CommandoClient {
-    log: winston.LoggerInstance;
+    log: winston.Logger;
     db: orm.Connection;
 
     constructor(options?: MapsterOptions) {
@@ -60,9 +77,9 @@ export class MapsterBot extends CommandoClient {
 
         this.log = logger;
 
-        this.on('error', logger.error);
-        this.on('warn', logger.warn);
-        this.on('debug', logger.debug);
+        this.on('error', (e) => logger.error(e.message, e));
+        this.on('warn', (s) => logger.warn(s));
+        this.on('debug', (s) => logger.debug(s));
         this.on('ready', async () => {
             logger.info(`Logged in as ${this.user.tag} (${this.user.id})`);
             await this.user.setActivity('!help', {

@@ -6,8 +6,8 @@ import * as gt from 'plaxtony/lib/src/compiler/types';
 import { getSourceFileOfNode } from 'plaxtony/lib/src/compiler/utils';
 import { getLineAndCharacterOfPosition } from 'plaxtony/lib/src/service/utils';
 import { Printer } from 'plaxtony/lib/src/compiler/printer';
-import { Store, S2WorkspaceWatcher } from 'plaxtony/lib/src/service/store';
-import { resolveArchiveDirectory, SC2Workspace, SC2Archive } from 'plaxtony/lib/src/sc2mod/archive';
+import { Store, S2WorkspaceWatcher, createTextDocumentFromFs } from 'plaxtony/lib/src/service/store';
+import { resolveArchiveDirectory, SC2Workspace, SC2Archive, openArchiveWorkspace } from 'plaxtony/lib/src/sc2mod/archive';
 import * as stringSimilarity from 'string-similarity';
 
 function slugify(str: string) {
@@ -25,18 +25,18 @@ function slugify(str: string) {
 
 async function prepareStore(directory: string, modSources: string[]) {
     const store = new Store();
-    const ws = new S2WorkspaceWatcher(directory, modSources);
-    const workspaces: SC2Workspace[] = [];
-    ws.onDidOpen((ev) => {
-        store.updateDocument(ev.document);
-    });
-    ws.onDidOpenS2Archive((ev) => {
-        workspaces.push(ev.workspace);
-    });
-    await ws.watch();
-    for (const ws of workspaces) {
-        await store.updateS2Workspace(ws);
+    const rootArchive = new SC2Archive(path.basename(directory), directory);
+    const workspace = await openArchiveWorkspace(rootArchive, modSources);
+
+    await store.updateS2Workspace(workspace);
+    await store.rebuildS2Metadata();
+
+    for (const modArchive of workspace.allArchives) {
+        for (const extSrc of await modArchive.findFiles('**/*.galaxy')) {
+            store.updateDocument(createTextDocumentFromFs(path.join(modArchive.directory, extSrc)));
+        }
     }
+
     return store;
 }
 
@@ -53,14 +53,6 @@ export default class GalaxyCommand extends MapsterCommand {
             memberName: 'galaxy',
             aliases: ['gal', 'g'],
             description: 'Galaxy API',
-            args: [
-                {
-                    key: 'keyword',
-                    type: 'string',
-                    prompt: 'Provide symbol name',
-                },
-            ],
-            argsCount: 1,
         });
 
         setTimeout(async () => await this.loadup(), 1000 * 60 * 10);
@@ -93,7 +85,7 @@ export default class GalaxyCommand extends MapsterCommand {
             title: sym.escapedName,
             description: '',
             color: 0x31D900,
-            url: 'http://mapster.talv.space/galaxy/reference/' + slugify(sym.escapedName),
+            url: 'https://mapster.talv.space/galaxy/reference/' + slugify(sym.escapedName),
         });
 
         if (metaDesc) {
@@ -111,12 +103,12 @@ export default class GalaxyCommand extends MapsterCommand {
         return pembed;
     }
 
-    public async run(msg: CommandMessage, args: string[]) {
+    public async run(msg: CommandMessage, arg: string) {
         await this.loadup();
-        let sym = this.store.resolveGlobalSymbol((<any>args).keyword);
+        let sym = this.store.resolveGlobalSymbol(arg);
 
         if (!sym) {
-            const match = stringSimilarity.findBestMatch((<any>args).keyword, this.skeys);
+            const match = stringSimilarity.findBestMatch(arg, this.skeys);
             this.client.log.info('match', match.bestMatch);
             if (match.bestMatch.rating >= 0.3) {
                 sym = this.store.resolveGlobalSymbol(match.bestMatch.target);

@@ -1,8 +1,9 @@
 import { CommandMessage } from 'discord.js-commando';
 import { MapsterBot, AdminCommand, ModCommand, MapsterCommand, logger } from '../bot';
-import { Message, RichEmbed, GuildMember, TextChannel, User, Channel } from 'discord.js';
+import { Message, RichEmbed, GuildMember, TextChannel, User, Channel, DiscordAPIError } from 'discord.js';
 import { parseMdPayload } from '../util/richmd';
 import { sleep, urlOfMessage } from '../util/helpers';
+import { imgurAlbumDirectLink } from '../util/imgurExtra';
 
 interface DraftMessage {
     userMsg: Message;
@@ -15,13 +16,17 @@ interface DrafPreparationRequest {
     reqDate: Date;
 }
 
-function fixIUrl(s: string) {
+async function fixIUrl(s: string) {
     s = s.replace(/^<?(.*)>?$/, '$1');
     s = s.replace(/^(https?:\/\/)(imgur.com\/)(\w+)$/i, '$1i.$2$3.jpg');
+    const match = s.match(/^(https?:\/\/)(imgur.com\/a\/)(\w+)$/i)
+    if (match) {
+        s = await imgurAlbumDirectLink(s);
+    }
     return s;
 }
 
-function createNewsEmbed(content: string, author: User) {
+async function createNewsEmbed(content: string, author: User) {
     const mData = parseMdPayload(content);
 
     const embed = new RichEmbed({
@@ -42,11 +47,11 @@ function createNewsEmbed(content: string, author: User) {
         }
     }
 
-    if (mData.meta['image']) embed.setImage(fixIUrl(mData.meta['image']));
-    if (mData.meta['icon']) embed.setThumbnail(fixIUrl(mData.meta['icon']));
+    if (mData.meta['image']) embed.setImage(await fixIUrl(mData.meta['image']));
+    if (mData.meta['icon']) embed.setThumbnail(await fixIUrl(mData.meta['icon']));
     if (mData.meta['url']) embed.setURL(mData.meta['url']);
     if (mData.meta['footer_text']) embed.footer.text = mData.meta['footer_text'];
-    if (mData.meta['footer_icon']) embed.footer.icon_url = fixIUrl(mData.meta['footer_icon']);
+    if (mData.meta['footer_icon']) embed.footer.icon_url = await fixIUrl(mData.meta['footer_icon']);
     if (mData.meta['color']) embed.setColor(parseInt(mData.meta['color'], 16));
 
     return embed;
@@ -146,12 +151,25 @@ export class MapNewsPostPreview extends MapsterCommand {
         if (!prepReq || prepReq.channel.id !== msg.channel.id) return;
         this.prepRequests.delete(msg.author.id);
 
-        const botMsg = await msg.channel.send(createNewsEmbed(msg.content, msg.author)) as Message;
+        let botMsg: Message;
+        try {
+            botMsg = await msg.channel.send(await createNewsEmbed(msg.content, msg.author)) as Message;
+        }
+        catch (e) {
+            let err = e as Error;
+            logger.error(`${err.name}: ${err.message}`, err);
+            if (err instanceof DiscordAPIError) {
+                botMsg = await msg.channel.send(`${err.name}: ${err.message}`) as Message;
+            }
+            else {
+                botMsg = await msg.channel.send(`Internal error: ${err.name}`) as Message;
+            }
+        }
         await botMsg.pin();
 
         const targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('mn.channel', null));
         if (targetChannel) {
-            await msg.channel.send(`Moderators: use \`!mn.post ${msg.id} #${targetChannel.name}\` to accept this post.`);
+            await msg.channel.send(`Moderators: use \`!mn.post ${msg.id} #${targetChannel.name}\` to approve this post.`);
         }
 
         this.draftMessages.set(msg.id, {
@@ -163,7 +181,19 @@ export class MapNewsPostPreview extends MapsterCommand {
     protected async onMessageUpdate(oldMsg: Message, newMsg: Message) {
         const draftMsg = this.draftMessages.get(oldMsg.id);
         if (!draftMsg) return;
-        draftMsg.botMsg = await draftMsg.botMsg.edit(createNewsEmbed(newMsg.content, newMsg.author));
+        try {
+            draftMsg.botMsg = await draftMsg.botMsg.edit(await createNewsEmbed(newMsg.content, newMsg.author));
+        }
+        catch (e) {
+            let err = e as Error;
+            logger.error(`${err.name}: ${err.message}`, err);
+            if (err instanceof DiscordAPIError) {
+                draftMsg.botMsg = await draftMsg.botMsg.edit(`${err.name}: ${err.message}`);
+            }
+            else {
+                draftMsg.botMsg = await draftMsg.botMsg.edit(`Internal error: ${err.name}`);
+            }
+        }
     }
 
     public async run(msg: CommandMessage) {
@@ -220,7 +250,7 @@ export class MapNewsPostCommand extends ModCommand {
         const targetChannel = args.targetChannel ? args.targetChannel : this.client.getChannel(msg.channel.id);
         const targetMessage = args.targetMessage ? await targetChannel.fetchMessage(args.targetMessage) : void 0;
 
-        const embed = createNewsEmbed(args.sourceMessage.content, author);
+        const embed = await createNewsEmbed(args.sourceMessage.content, author);
         let finalMessage: Message;
         if (targetMessage) {
             finalMessage = await targetMessage.edit(`<@${author.id}>`, embed);

@@ -1,4 +1,4 @@
-import sanitize = require('sanitize-html');
+const sanitize = require('sanitize-html');
 import * as sugar from 'sugar';
 import * as schedule from 'node-schedule';
 import { RichEmbed, Message, TextChannel } from 'discord.js';
@@ -29,7 +29,7 @@ export class ForumFeedTask extends Task {
         }
 
         this.jobs.push(schedule.scheduleJob(`${this.constructor.name}_${this.handleBnet.name}`, '*/5 * * * *', this.handleBnet.bind(this)));
-        this.jobs.push(schedule.scheduleJob(`${this.constructor.name}_${this.handleMapster.name}`, '*/13 * * * *', this.handleMapster.bind(this)));
+        this.jobs.push(schedule.scheduleJob(`${this.constructor.name}_${this.handleMapster.name}`, '40 * * * *', this.handleMapster.bind(this)));
     }
 
     async unload() {
@@ -64,7 +64,7 @@ export class ForumFeedTask extends Task {
             if (ctRes.next > nextSyncTime) {
                 nextSyncTime = ctRes.next;
                 logger.debug(`nextSyncTime: ${nextSyncTime.toUTCString()}`)
-                this.client.settings.set('fm-feed.bnet.last-time', nextSyncTime.getTime());
+                await this.client.settings.set('fm-feed.bnet.last-time', nextSyncTime.getTime());
             }
         }
     }
@@ -91,7 +91,7 @@ export class ForumFeedTask extends Task {
             if (res.next > nextSyncTime) {
                 nextSyncTime = res.next;
                 logger.debug(`nextSyncTime: ${nextSyncTime.toUTCString()}`)
-                this.client.settings.set('fm-feed.mapster.last-time', nextSyncTime.getTime());
+                await this.client.settings.set('fm-feed.mapster.last-time', nextSyncTime.getTime());
             }
         }
     }

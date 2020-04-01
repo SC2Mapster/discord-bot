@@ -1,7 +1,6 @@
-import { MapsterBot } from './bot';
 import * as dotenv from 'dotenv';
-
 dotenv.config();
+import { MapsterBot } from './bot';
 
 const bot = new MapsterBot({
     owner: process.env.BOT_OWNER.split(','),

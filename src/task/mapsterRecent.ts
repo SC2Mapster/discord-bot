@@ -6,7 +6,7 @@ import { embedRecent, createNewConnection } from '../util/mapster';
 import { MapsterConnection } from 'sc2mapster-crawler';
 
 export class MapsterRecentTask extends Task {
-    job: schedule.Job;
+    jobs: schedule.Job[] = [];
     mconn: MapsterConnection;
 
     constructor(bot: MapsterBot) {
@@ -18,7 +18,7 @@ export class MapsterRecentTask extends Task {
             this.mconn = await createNewConnection();
         }
 
-        this.job = schedule.scheduleJob(this.constructor.name, '*/30 * * * *', this.update.bind(this));
+        this.jobs.push(schedule.scheduleJob(this.constructor.name, '15 * * * *', this.update.bind(this)));
     }
 
     async unload() {
@@ -49,13 +49,12 @@ export class MapsterRecentTask extends Task {
 
         for (const item of result.embeds) {
             const emsg = <Message>await targetChannel.send(item);
-            await emsg.react('⬆');
-            await emsg.react('⬇');
+            await emsg.react('⭐');
         }
 
         if (result.nextRefDate) {
             logger.debug(`nextrefdate: ${result.nextRefDate.toUTCString()}`)
-            this.client.settings.set('mapster:recent:prevtime', result.nextRefDate.getTime());
+            await this.client.settings.set('mapster:recent:prevtime', result.nextRefDate.getTime());
         }
     }
 }

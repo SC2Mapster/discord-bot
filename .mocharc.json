@@ -1,0 +1,5 @@
+{
+    "extension": ["js", "ts"],
+    "spec": ["lib/test/**/*.js"],
+    "require": "source-map-support/register"
+}
