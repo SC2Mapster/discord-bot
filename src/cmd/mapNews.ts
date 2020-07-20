@@ -1,3 +1,4 @@
+import * as schedule from 'node-schedule';
 import { CommandMessage } from 'discord.js-commando';
 import { MapsterBot, AdminCommand, ModCommand, MapsterCommand, logger } from '../bot';
 import { Message, RichEmbed, GuildMember, TextChannel, User, Channel, DiscordAPIError } from 'discord.js';
@@ -82,15 +83,33 @@ export class MapNewsPostPreview extends MapsterCommand {
         this.client.on('channelCreate', this.onChannelCreate.bind(this));
         this.client.on('messageUpdate', this.onMessageUpdate.bind(this));
         this.client.on('message', this.onMessage.bind(this));
+
+        schedule.scheduleJob(`${this.constructor.name}_reminder`, '0 * * * *', this.reminder.bind(this));
     }
 
     protected async setupChannelListenerForUser(channel: TextChannel, user: User) {
-        await channel.send(this.client.settings.get('mn.template-msg', 'Provide content for your post.'));
         this.prepRequests.set(user.id, {
             channel: channel,
             user: user,
             reqDate: new Date(),
         });
+    }
+
+    protected async reminder() {
+        for (const guild of this.client.guilds.values()) {
+            for (const chan of guild.channels.values()) {
+                if (!chan.parent) continue;
+                if (chan.parent.name !== 'Tickets') continue;
+                if (chan.type !== 'text') continue;
+                if (!chan.name.match(/^(\d+)-news-?(.*)$/u)) continue;
+                const textChan = chan as TextChannel;
+                const lastMsg = await textChan.fetchMessage(textChan.lastMessageID);
+                const diff = Date.now() - lastMsg.createdTimestamp
+                if (diff / 1000 / (3600 * 24) >= 5) {
+                    await textChan.send('Detected lack of activity. If conditions won\'t change, this ticket will be automatically closed after 48h.');
+                }
+            }
+        }
     }
 
     protected async onChannelCreate(channel: Channel) {
@@ -137,6 +156,7 @@ export class MapNewsPostPreview extends MapsterCommand {
             ].join('');
             const lmsg = await textChan.send(`<@${mentionedUser.id}>,\n\n${this.client.settings.get('mn.welcome-msg', defaultTpl)}`) as Message;
             await lmsg.pin();
+            await textChan.send(this.client.settings.get('mn.template-msg', 'Provide content for your post.'));
             await this.setupChannelListenerForUser(textChan, mentionedUser);
 
             await textChan.setName(`${nameMatches[1]}-news-${nameMatches[2] ?? ''}-${mentionedUser.username}`);
@@ -150,6 +170,8 @@ export class MapNewsPostPreview extends MapsterCommand {
     protected async onMessage(msg: Message) {
         const prepReq = this.prepRequests.get(msg.author.id);
         if (!prepReq || prepReq.channel.id !== msg.channel.id) return;
+        if (new Date(msg.createdTimestamp).getTime() < prepReq.reqDate.getTime()) return;
+
         this.prepRequests.delete(msg.author.id);
 
         let botMsg: Message;
@@ -160,18 +182,13 @@ export class MapNewsPostPreview extends MapsterCommand {
         catch (e) {
             let err = e as Error;
             logger.error(`${err.name}: ${err.message}`, err);
-            if (err instanceof DiscordAPIError) {
-                botMsg = await msg.channel.send(`${err.name}: ${err.message}`) as Message;
-            }
-            else {
-                botMsg = await msg.channel.send(`Internal error: ${err.name}`) as Message;
-            }
+            botMsg = await msg.channel.send(`${err.name}: ${err.message}`) as Message;
         }
         // await botMsg.pin();
 
         const targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('mn.channel', null));
         if (targetChannel) {
-            await msg.channel.send(`|| Notice for moderators: \`!mn.post ${msg.id} #${targetChannel.name}\` ||`);
+            await msg.channel.send(`||\`!mn.post ${msg.id} #${targetChannel.name}\`||`);
         }
 
         this.draftMessages.set(msg.id, {
@@ -200,7 +217,8 @@ export class MapNewsPostPreview extends MapsterCommand {
     }
 
     public async run(msg: CommandMessage) {
-        this.setupChannelListenerForUser(msg.channel as TextChannel, msg.author);
+        await this.setupChannelListenerForUser(msg.channel as TextChannel, msg.author);
+        await msg.react('✔');
         return [] as Message[];
     }
 }
@@ -257,12 +275,16 @@ export class MapNewsPostCommand extends ModCommand {
         let finalMessage: Message;
         if (targetMessage) {
             finalMessage = await targetMessage.edit(`<@${author.id}> ` + minfo.content, minfo.embed);
+            return msg.reply(`Done. ${urlOfMessage(finalMessage)}`);
         }
         else {
             finalMessage = await targetChannel.send(`<@${author.id}> ` + minfo.content, minfo.embed) as Message;
             await finalMessage.react('⭐');
+            await msg.channel.send(
+                `<@${author.id}> Your post has been approved. You may now close the ticket by using command \`!ticket close\`.`,
+            );
         }
 
-        return msg.reply(`Done. ${urlOfMessage(finalMessage)}`);
+        return [] as Message[];
     }
 }
