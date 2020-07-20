@@ -111,7 +111,7 @@ export async function executeQuery(params: QueryParams) {
     let qstring: string[] = [];
 
     switch (params.src) {
-        case SourceKind.Any: qstring.push('sc2mapster'); break;
+        case SourceKind.Any: qstring.push('sc2mapster OR talv'); break;
         case SourceKind.MapsterProject: qstring.push('site:sc2mapster.com inurl:projects -inurl:files'); break;
         case SourceKind.MapsterProjectFile: qstring.push('site:sc2mapster.com inurl:projects inurl:files'); break;
         case SourceKind.MapsterForum: qstring.push('site:sc2mapster.com inurl:forums'); break;
@@ -130,7 +130,7 @@ export async function executeQuery(params: QueryParams) {
         };
         const urlInfo = url.parse(item.url);
 
-        if (urlInfo.host === 'www.sc2mapster.com') {
+        if (urlInfo.host.match(/^(www\.)?sc2mapster\.com$/)) {
             let m: RegExpExecArray;
 
             if (m = /^\/projects\/([\w-]+)$/i.exec(urlInfo.pathname)) {

@@ -87,12 +87,10 @@ export class QueryCommand extends MapsterCommand {
         });
     }
 
-    isEnabledIn(guild: GuildResolvable) {
-        return false;
-    }
-
     public async run(msg: CommandMessage, args: string) {
-        msg.channel.startTyping();
+        if (!msg.channel.typing) {
+            msg.channel.startTyping();
+        }
 
         let eraseCmdMessage = false;
         if (args.endsWith('$')) {
@@ -136,13 +134,18 @@ export class QueryCommand extends MapsterCommand {
                 {
                     const fthread = await conn.getForumThread(results[0].url)
                     const embed = embedForumThread(fthread);
-                    embed.description = results[0].description;
+                    if (embed.description.length > 900) {
+                        embed.fields.push({
+                            name: 'Overview',
+                            value: results[0].description,
+                        });
+                    }
                     rmsg = await msg.embed(embed);
                     break;
                 }
                 default:
                 {
-                    throw new Error('unkown result');
+                    throw new Error('unknown result');
                     break;
                 }
             }
@@ -155,7 +158,7 @@ export class QueryCommand extends MapsterCommand {
                 title = title.replace(/\s*(- SC2Mapster Wiki)\s*[\.]*$/, '');
                 title = title.replace(/\s*(- SC2Mapster)\s*[\.]*$/, '');
                 title = title.replace(/\s*(- SC2 Mapster Forums)\s*[\.]*$/, '');
-                let tmp = '. `[' + ['𝟭','𝟮','𝟯','𝟰','𝟱','𝟲','𝟳','𝟴','𝟵'][key] +  ']`';
+                let tmp = '__` ' + ['𝟭','𝟮','𝟯','𝟰','𝟱','𝟲','𝟳','𝟴','𝟵'][key] +  ' `__';
 
                 // tmp += ' /';
                 let ssym = '';

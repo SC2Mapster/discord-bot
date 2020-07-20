@@ -8,6 +8,7 @@ import { getLineAndCharacterOfPosition } from 'plaxtony/lib/src/service/utils';
 import { Printer } from 'plaxtony/lib/src/compiler/printer';
 import { Store, S2WorkspaceWatcher, createTextDocumentFromFs } from 'plaxtony/lib/src/service/store';
 import { resolveArchiveDirectory, SC2Workspace, SC2Archive, openArchiveWorkspace } from 'plaxtony/lib/src/sc2mod/archive';
+import * as trig from 'plaxtony/lib/src/sc2mod/trigger';
 import * as stringSimilarity from 'string-similarity';
 
 function slugify(str: string) {
@@ -43,7 +44,7 @@ async function prepareStore(directory: string, modSources: string[]) {
 export default class GalaxyCommand extends MapsterCommand {
     private store: Store;
     private symbols = new Map<string, gt.Symbol>();
-    private skeys: string[];
+    private guiSymbols = new Map<string, gt.Symbol>();
     private printer = new Printer();
 
     constructor(client: MapsterBot) {
@@ -51,8 +52,12 @@ export default class GalaxyCommand extends MapsterCommand {
             name: 'galaxy',
             group: 'general',
             memberName: 'galaxy',
-            aliases: ['gal', 'g'],
+            aliases: ['g'],
             description: 'Galaxy API',
+            throttling: {
+                usages: 10,
+                duration: 60,
+            },
         });
 
         setTimeout(async () => await this.loadup(), 1000 * 60 * 10);
@@ -64,10 +69,25 @@ export default class GalaxyCommand extends MapsterCommand {
             for (const sourceFile of this.store.documents.values()) {
                 for (const sym of sourceFile.symbol.members.values()) {
                     this.symbols.set(sym.escapedName, sym);
+                    const trigEl = this.store.s2metadata.findElementByName(sym.escapedName);
+                    if (trigEl) {
+                        if (trigEl instanceof trig.FunctionDef) {
+                            this.guiSymbols.set(this.store.s2workspace.locComponent.triggers.elementName('Name', trigEl), sym);
+                        }
+                        else if (trigEl instanceof trig.PresetValue) {
+                            const presetGroup = this.store.s2metadata.findPresetDef(trigEl);
+                            if (presetGroup) {
+                                this.guiSymbols.set([
+                                    this.store.s2workspace.locComponent.triggers.elementName('Name', presetGroup),
+                                    this.store.s2workspace.locComponent.triggers.elementName('Name', trigEl),
+                                ].join(' '), sym);
+                            }
+                        }
+                    }
                 }
             }
-            this.skeys = Array.from(this.symbols.keys());
-            this.client.log.info(`symbols: ${this.skeys.length}`);
+            this.client.log.info(`symbols: ${this.symbols.size}`);
+            this.client.log.info(`guiSymbols: ${this.guiSymbols.size}`);
         }
         return this.store;
     }
@@ -79,26 +99,87 @@ export default class GalaxyCommand extends MapsterCommand {
 
         const fileName = sourceFile.fileName.match(/([^\/]+)$/g)[0];
         const filePath = sourceFile.fileName.match(/\/mods\/(.+)$/g)[0];
-        const metaDesc = this.store.s2metadata.getSymbolDoc(sym.escapedName);
+        const metaDesc = this.store.s2metadata.getSymbolDoc(sym.escapedName, false);
+        const trigEl = this.store.s2metadata.findElementByName(sym.escapedName);
 
         const pembed = new RichEmbed({
             title: sym.escapedName,
             description: '',
-            color: 0x31D900,
-            url: 'https://mapster.talv.space/galaxy/reference/' + slugify(sym.escapedName),
+            color: 0x25a200,
+            url: 'https://mapster.talv.space/galaxy/reference/',
+            // thumbnail: {
+            //     url: 'https://i.imgur.com/0TkG7Gu.png',
+            // },
+            footer: {
+                // icon_url: 'https://i.imgur.com/qMyixeP.png',
+                // icon_url: 'https://i.imgur.com/na2BkAd.png',
+            },
+            fields: [],
         });
 
         if (metaDesc) {
             const matches = metaDesc.match(/^\*\*([^*]+)\*\*\s*/);
-            pembed.title = `:link: ${matches[1]}`;
-            pembed.description = metaDesc.substr(matches[0].length);
+            pembed.title = matches[1];
+            pembed.description = metaDesc.substr(matches[0].length).replace(/ \*([\w\s]+)\* /gi, ' __$1__ ').trim();
         }
 
         let decl = node;
         if (decl.kind === gt.SyntaxKind.FunctionDeclaration && (<gt.FunctionDeclaration>decl).body) {
             decl = Object.assign({}, decl, {body: null});
         }
-        pembed.description += '\n```c\n' + this.printer.printNode(decl) + '\n```';
+
+        const rawcode = this.printer.printNode(decl).replace(/(^native |;\s*$)/g, '');
+        if (rawcode) {
+            // pembed.description += '\n```c\n' + rawcode + '```';
+            pembed.fields.push({
+                name: 'Declaration',
+                value: '```c\n' + rawcode + '```',
+            });
+            // pembed.description += '\n\n`' + rawcode + '`';
+        }
+
+        if (trigEl) {
+            let footerTags: string[] = [
+                trigEl.flags & trig.ElementFlag.Native ? 'Native' : '',
+                trigEl.flags & trig.ElementFlag.Deprecated ? 'Deprecated' : '',
+                trigEl.flags & trig.ElementFlag.Internal ? 'Internal' : '',
+                trigEl.flags & trig.ElementFlag.Operator ? 'Operator' : '',
+            ];
+
+            if (trigEl instanceof trig.FunctionDef) {
+                footerTags = footerTags.concat([
+                    trigEl.flags & trig.ElementFlag.Event ? 'Event' : '',
+                    trigEl.flags & trig.ElementFlag.FuncAction ? 'Action' : '',
+                    trigEl.flags & trig.ElementFlag.FuncCall ? 'Function' : '',
+                ]);
+                pembed.url += slugify(sym.escapedName);
+                pembed.footer.text = this.store.s2workspace.locComponent.triggers.elementName('Grammar', trigEl);
+            }
+            else if (trigEl instanceof trig.PresetValue) {
+                const presetGroup = this.store.s2metadata.findPresetDef(trigEl);
+                if (presetGroup) {
+                    footerTags = footerTags.concat([
+                        presetGroup.flags & trig.ElementFlag.PresetCustom ? 'PresetCustom' : '',
+                        presetGroup.flags & trig.ElementFlag.PresetGenConstVar ? 'PresetGenConstVar' : '',
+                    ]);
+                    pembed.title = `Preset — ${this.store.s2workspace.locComponent.triggers.elementName('Name', presetGroup)}`;
+                    pembed.description = `${this.store.s2workspace.locComponent.triggers.elementName('Name', trigEl)}`;
+                    pembed.footer.text = `.. and ${presetGroup.values.length} other options.`;
+                }
+            }
+
+            if (pembed.fields.length) {
+                pembed.fields[0].name = `[ ${footerTags.filter(v => v.trim().length).join(' — ')} ]`;
+            }
+
+            if (pembed.footer.text) {
+                pembed.footer.icon_url = 'https://i.imgur.com/na2BkAd.png';
+            }
+        }
+
+        if (pembed.url) {
+            pembed.title = `:link: ${pembed.title}`;
+        }
 
         return pembed;
     }
@@ -108,10 +189,14 @@ export default class GalaxyCommand extends MapsterCommand {
         let sym = this.store.resolveGlobalSymbol(arg);
 
         if (!sym) {
-            const match = stringSimilarity.findBestMatch(arg, this.skeys);
+            arg = arg.trim().replace(/(?!^)[A-Z]+/g, (m) => ' ' + m);
+            const match = stringSimilarity.findBestMatch(
+                arg,
+                Array.from(this.symbols.keys()).concat(Array.from(this.guiSymbols.keys()))
+            );
             this.client.log.info('match', match.bestMatch);
-            if (match.bestMatch.rating >= 0.3) {
-                sym = this.store.resolveGlobalSymbol(match.bestMatch.target);
+            if (match.bestMatch.rating >= 0.35) {
+                sym = this.symbols.get(match.bestMatch.target) ?? this.guiSymbols.get(match.bestMatch.target);
             }
         }
 

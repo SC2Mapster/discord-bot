@@ -8,8 +8,8 @@ interface MdPayload {
     meta: {[name: string]: string};
 }
 
-const reFrontmatterBlock = /^(?:---|```)\n((?:(?!-).+\n)*)(?:---|```)/;
-const reFrontmatterValue = /^([\w\d]+):\s*(.+)$/;
+const reFrontmatterBlock = /^(?:---|```|📥📥)\n((?:(?!-).+\n)*)(?:---|```|📤📤)/;
+const reFrontmatterValue = /^([\w\d]+)\s*=\s*(.+)$/;
 const reEntryHead = /(?:^|\n+)(#+) ([^\n]+)(?:\n|$)/;
 const reEntryContent = /^\n?((?!#)[^]+?)(?:\n#+ |$)/;
 
@@ -25,7 +25,7 @@ export function parseMdPayload(input: string) {
         for (const fline of fmatches[1].split('\n')) {
             const fbm = fline.match(reFrontmatterValue);
             if (!fbm) continue;
-            mContent.meta[fbm[1]] = fbm[2];
+            mContent.meta[fbm[1].toLowerCase()] = fbm[2];
         }
         buff = buff.substr(fmatches[0].length).trimLeft();
     }

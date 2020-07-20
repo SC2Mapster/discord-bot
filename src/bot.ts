@@ -82,9 +82,6 @@ export class MapsterBot extends CommandoClient {
         this.on('debug', (s) => logger.debug(s));
         this.on('ready', async () => {
             logger.info(`Logged in as ${this.user.tag} (${this.user.id})`);
-            await this.user.setActivity('!help', {
-                type: 'LISTENING',
-            });
         });
         this.on('disconnect', () => logger.warn('Disconnected!'));
         this.on('reconnecting', () => logger.warn('Reconnecting...'));
@@ -227,11 +224,18 @@ export abstract class MapsterCommand extends Command {
 export abstract class AdminCommand extends MapsterCommand {
     public hasPermission(userMsg: CommandMessage) {
         const adminIds = (<string>this.client.settings.get('admin.users-list', '')).split(',');
-        return this.client.isOwner(userMsg.author) || adminIds.indexOf(userMsg.author.id) !== -1 || userMsg.member.permissions.has('MANAGE_GUILD');
+        return (
+            this.client.isOwner(userMsg.author) ||
+            adminIds.indexOf(userMsg.author.id) !== -1 ||
+            (userMsg.channel.type === 'text' && userMsg.member.permissions.has('MANAGE_GUILD'))
+        );
     }
 }
 export abstract class ModCommand extends AdminCommand {
     public hasPermission(userMsg: CommandMessage) {
-        return super.hasPermission(userMsg) || userMsg.member.permissions.has('MANAGE_CHANNELS');
+        return (
+            super.hasPermission(userMsg) ||
+            (userMsg.channel.type === 'text' && userMsg.member.permissions.has('MANAGE_CHANNELS'))
+        );
     }
 }

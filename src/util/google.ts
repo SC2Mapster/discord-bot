@@ -1,8 +1,10 @@
 import * as request from 'request-promise-native';
+import * as querystring from 'querystring';
 import { StatusCodeError } from 'request-promise-native/errors';
 import * as cheerio from 'cheerio';
 import * as url from 'url';
 import * as htmlEntities from 'html-entities';
+import puppeteer from 'puppeteer';
 
 const ehtml = new htmlEntities.Html5Entities();
 
@@ -55,13 +57,36 @@ class CaptchaError extends Error {
     }
 }
 
+let mBrowser: puppeteer.Browser;
+
 async function fetchPage(options: SearchOptions) {
     try {
-        const result = await session.get({
-            uri: 'https://' + options.host + '/search',
-            qs: options.params,
-            followRedirect: false,
-        });
+        if (!mBrowser) {
+            mBrowser = await puppeteer.launch({
+                headless: true,
+                args: [
+                    `--no-sandbox`,
+                    `--no-default-browser-check`,
+                    `--window-size=1280,800`,
+                    `--user-agent=${'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:73.0) Gecko/20100101 Firefox/73.0'}`,
+                ],
+                ignoreDefaultArgs: [
+                    `--enable-automation`,
+                ],
+                // dumpio: true,
+            });
+        }
+        const bPages = await mBrowser.pages();
+        const cpage = bPages.length ? bPages[0] : await mBrowser.newPage();
+        const resp = await cpage.goto(`https://${options.host}/search?${querystring.stringify(options.params)}`);
+        await cpage.waitForSelector('div[id=search]');
+        const result = await resp.text();
+        await cpage.close();
+        // const result = await session.get({
+        //     uri: 'https://' + options.host + '/search',
+        //     qs: options.params,
+        //     followRedirect: false,
+        // });
         return <string>result;
     }
     catch (e) {
@@ -99,24 +124,21 @@ function extractResults(body: string) {
     const $list = $('#search .g:not(.mod)');
     $list.each((i) => {
         const $el = $list.eq(i);
-        const $elAn = $el.find('h3 a');
+        const $elAn = $el.find('div.r >a');
 
         if (!$elAn.length) return;
 
         const parsedUrl = url.parse($elAn.attr('href'), true);
+        let qurl = parsedUrl.href;
 
-        if (parsedUrl.pathname !== '/url') {
-            return;
+        if (parsedUrl.pathname === '/url') {
+            qurl = parsedUrl.query?.q as string ?? '';
         }
 
-        let desc = $el.find('.st').html().trim();
-        let meta: string;
-        const m = /^([0-9]{1,2},? \w+ [0-9]{4})\s*/i.exec(desc)
-        if (m) {
-            meta = m[1];
-            desc = desc.substr(m[0].length);
-            // desc = desc.replace(/^<span class="f">[^\<]*<\/span>/, '');
-        }
+        const title = $el.find('div.r >a >h3').text();
+        let desc = $el.find('.st')?.html().trim();
+        let meta = $el.find('.f')?.html();
+
         desc = sanitize(desc);
         desc = desc.replace(/\s*<b>[\.]*<\/b>\s*/g, ' ');
         desc = desc.replace(/<\/?(em|b)>/g, '**');
@@ -124,9 +146,9 @@ function extractResults(body: string) {
         desc = ehtml.decode(desc);
 
         results.push({
-            url: <string>parsedUrl.query.q,
-            title: $elAn.text(),
-            desc: desc.trim(),
+            url: qurl,
+            title: title,
+            desc: desc,
             meta: meta,
         });
     });

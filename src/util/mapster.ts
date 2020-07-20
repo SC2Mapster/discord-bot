@@ -5,6 +5,7 @@ import { Message, RichEmbed, TextChannel } from 'discord.js';
 import * as imgur from 'imgur';
 import * as stringSimilarity from 'string-similarity';
 import { logger } from '../bot';
+import { sanitizeForeignHtml } from './helpers';
 
 let mconn: mapster.MapsterConnection;
 export async function getActiveConnection() {
@@ -92,7 +93,7 @@ function filterBrokenImages(urls: string[]) {
 export function embedProject(project: mapster.ProjectOverview) {
     const pembed = new RichEmbed({
         title: project.base.title,
-        description: sugar.String.truncate(project.description.simplified, 200),
+        description: sanitizeForeignHtml(sugar.String.truncate(project.description.html, 1000)),
         author: {
             name: project.owner.title,
             icon_url: project.owner.profileThumbUrl,
@@ -136,7 +137,7 @@ export function embedProject(project: mapster.ProjectOverview) {
 export function embedFile(pfile: mapster.ProjectFile, frontImage?: string) {
     const pembed = new RichEmbed({
         title: pfile.title,
-        description: sugar.String.truncate(pfile.description.simplified, 160),
+        description: sanitizeForeignHtml(sugar.String.truncate(pfile.description.html, 1000)),
         author: {
             name: pfile.uploadedBy.title,
             icon_url: pfile.uploadedBy.profileThumbUrl,
@@ -248,22 +249,23 @@ export async function embedRecent(opts: { refdate: Date, conn?: mapster.MapsterC
 export function embedForumThread(fthread: mapster.ForumThread) {
     const embed = new RichEmbed({
         title: fthread.title,
-        description: sugar.String.truncate(fthread.posts[0].content.simplified, 120),
+        description: sanitizeForeignHtml(sugar.String.truncate(fthread.posts[0].content.html, 1000)),
         author: {
             name: fthread.posts[0].author.title,
             icon_url: fthread.posts[0].author.profileThumbUrl,
             url: `${mapster.mBaseURL}/members/${fthread.posts[0].author.name}`,
         },
         color: 0xE37C22,
-        url: fthread.url,
+        url: fthread.posts[0].directLink,
         timestamp: fthread.posts[0].date,
         footer: {
             text: `SC2Mapster Forum / ${fthread.categoryBreadcrumb.join(' / ')}`,
             icon_url: 'https://media.forgecdn.net/avatars/97/682/636293447593708306.png',
         },
+        fields: [],
     });
     if (fthread.posts[0].content.embeddedImages.length) {
-        embed.image = {
+        embed.thumbnail = {
             url: fthread.posts[0].content.embeddedImages[0],
         }
     }

@@ -6,8 +6,7 @@ export class MapsterCommonTask extends Task {
         this.client.on('message', async (msg) => {
             // #showcase
             if (msg.channel.id === '410424727484628993') {
-                await msg.react('⬆');
-                await msg.react('⬇');
+                await msg.react('⭐');
             }
         });
 

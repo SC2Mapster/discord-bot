@@ -1,4 +1,3 @@
-const sanitize = require('sanitize-html');
 import * as sugar from 'sugar';
 import * as schedule from 'node-schedule';
 import { RichEmbed, Message, TextChannel } from 'discord.js';
@@ -7,6 +6,7 @@ import { Task } from '../registry';
 import { fetchLatestInSubforum, BnetForumSubmission } from '../util/bnetForum';
 import { fetchLatestForum, MapsterForumSubmission, createNewConnection } from '../util/mapster';
 import { MapsterConnection } from 'sc2mapster-crawler';
+import { sanitizeForeignHtml } from '../util/helpers';
 
 export class ForumFeedTask extends Task {
     jobs: schedule.Job[] = [];
@@ -97,32 +97,10 @@ export class ForumFeedTask extends Task {
     }
 }
 
-function sClean(s: string) {
-    s = sanitize(s, {
-        allowedTags: [ 'b', 'i', 'em', 'strong', 'li', 'code', 'a' ],
-        // TODO: img[src], iframe[yt]
-        allowedAttributes: {
-            'a': [ 'href' ]
-        },
-        // allowedIframeHostnames: ['www.youtube.com']
-    });
-    s = s.replace(/<a href="([^"]+)">([^<]+)<\/a>/g, (org, name, link) => {
-        return `[${link}](${name})`;
-    });
-    s = s.replace(/<\/?(em|b|strong)>/g, '**');
-    s = s.replace(/<\/?(i)>/g, '*');
-    s = s.replace(/<\/?(code)>/g, '`');
-    s = s.replace(/<\/(li)>/g, '\n');
-    s = s.replace(/<(li)>/g, ' ► ');
-    s = s.replace(/&gt;/g, '>');
-    s = s.replace(/&lt;/g, '<');
-    return s;
-}
-
 function prepareBnetEmbed(entry: BnetForumSubmission, categoryName: string) {
     const pembed = new RichEmbed({
         title: `${entry.topic.title} #${entry.post.post_number}`,
-        description: sClean(sugar.String.truncate(entry.post.cooked, 500)),
+        description: sanitizeForeignHtml(sugar.String.truncate(entry.post.cooked, 1000)),
         author: {
             name: entry.post.username.replace(/-[0-9]+$/, ''),
             icon_url: entry.post.avatar_template,
@@ -142,7 +120,7 @@ function prepareBnetEmbed(entry: BnetForumSubmission, categoryName: string) {
 function prepareMapsterEmbed(entry: MapsterForumSubmission) {
     const pembed = new RichEmbed({
         title: `${entry.post.thread.title} #${entry.post.postNumber}`,
-        description: sClean(sugar.String.truncate(entry.post.content.html, 500)),
+        description: sanitizeForeignHtml(sugar.String.truncate(entry.post.content.html, 1000)),
         author: {
             name: entry.post.author.title,
             icon_url: entry.post.author.profileThumbUrl,
@@ -157,7 +135,7 @@ function prepareMapsterEmbed(entry: MapsterForumSubmission) {
         },
     });
     if (entry.post.content.embeddedImages.length) {
-        pembed.image = {
+        pembed.thumbnail = {
             url: entry.post.content.embeddedImages[0],
         }
     }

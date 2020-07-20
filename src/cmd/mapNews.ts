@@ -26,16 +26,17 @@ async function fixIUrl(s: string) {
     return s;
 }
 
-async function createNewsEmbed(content: string, author: User) {
-    const mData = parseMdPayload(content);
+async function createNewsEmbed(input: string, author: GuildMember) {
+    const mData = parseMdPayload(input);
 
     const embed = new RichEmbed({
         author: {
-            name: `${author.tag}`,
-            icon_url: author.displayAvatarURL,
+            name: `${author.displayName}`,
+            icon_url: author.user.displayAvatarURL,
         },
         footer: {},
     });
+    let content = '';
 
     if (mData.fields.length) {
         embed.title = mData.fields[0].title;
@@ -54,7 +55,15 @@ async function createNewsEmbed(content: string, author: User) {
     if (mData.meta['footer_icon']) embed.footer.icon_url = await fixIUrl(mData.meta['footer_icon']);
     if (mData.meta['color']) embed.setColor(parseInt(mData.meta['color'], 16));
 
-    return embed;
+    if (mData.meta['discord']) {
+        content += `${mData.meta['discord']}`;
+    }
+
+    return {
+        mData,
+        content,
+        embed,
+    };
 }
 
 export class MapNewsPostPreview extends MapsterCommand {
@@ -76,7 +85,7 @@ export class MapNewsPostPreview extends MapsterCommand {
     }
 
     protected async setupChannelListenerForUser(channel: TextChannel, user: User) {
-        await channel.send(`${this.client.settings.get('mn.template-msg', 'Provide content for your post.')}`);
+        await channel.send(this.client.settings.get('mn.template-msg', 'Provide content for your post.'));
         this.prepRequests.set(user.id, {
             channel: channel,
             user: user,
@@ -102,8 +111,6 @@ export class MapNewsPostPreview extends MapsterCommand {
                 await textChan.overwritePermissions(botsRole, {
                     MANAGE_CHANNELS: true,
                     MANAGE_ROLES_OR_PERMISSIONS: true,
-                    ATTACH_FILES: true,
-                    EMBED_LINKS: true,
                 });
             }
 
@@ -111,19 +118,13 @@ export class MapNewsPostPreview extends MapsterCommand {
             const nameMatches = textChan.name.match(/^(\d+)-news-?(.*)$/u);
             if (!nameMatches) return;
 
-            const everyoneRole = textChan.guild.roles.get('271701880885870594');
-            if (everyoneRole) {
-                await textChan.overwritePermissions(everyoneRole, {
-                    SEND_MESSAGES: false,
-                    READ_MESSAGES: false,
-                    ATTACH_FILES: false,
-                    EMBED_LINKS: false,
-                });
-            }
-
             const mentionedUserId = firstMsg.embeds[0].description.match(/^Welcome <@(\d+)>/)[1];
             const mentionedUser = (await textChan.guild.fetchMember(mentionedUserId)).user;
             await firstMsg.delete();
+
+            await textChan.overwritePermissions(mentionedUser, {
+                EMBED_LINKS: false,
+            });
 
             const defaultTpl = [
                 `Before we get started, here are some generic commands specific to this channel.\n\n`,
@@ -153,7 +154,8 @@ export class MapNewsPostPreview extends MapsterCommand {
 
         let botMsg: Message;
         try {
-            botMsg = await msg.channel.send(await createNewsEmbed(msg.content, msg.author)) as Message;
+            const minfo = await createNewsEmbed(msg.content, msg.member);
+            botMsg = await msg.channel.send(minfo.content, minfo.embed) as Message;
         }
         catch (e) {
             let err = e as Error;
@@ -165,11 +167,11 @@ export class MapNewsPostPreview extends MapsterCommand {
                 botMsg = await msg.channel.send(`Internal error: ${err.name}`) as Message;
             }
         }
-        await botMsg.pin();
+        // await botMsg.pin();
 
         const targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('mn.channel', null));
         if (targetChannel) {
-            await msg.channel.send(`Moderators: use \`!mn.post ${msg.id} #${targetChannel.name}\` to approve this post.`);
+            await msg.channel.send(`|| Notice for moderators: \`!mn.post ${msg.id} #${targetChannel.name}\` ||`);
         }
 
         this.draftMessages.set(msg.id, {
@@ -182,7 +184,8 @@ export class MapNewsPostPreview extends MapsterCommand {
         const draftMsg = this.draftMessages.get(oldMsg.id);
         if (!draftMsg) return;
         try {
-            draftMsg.botMsg = await draftMsg.botMsg.edit(await createNewsEmbed(newMsg.content, newMsg.author));
+            const minfo = await createNewsEmbed(newMsg.content, newMsg.member);
+            draftMsg.botMsg = await draftMsg.botMsg.edit(minfo.content, minfo.embed);
         }
         catch (e) {
             let err = e as Error;
@@ -246,17 +249,17 @@ export class MapNewsPostCommand extends ModCommand {
     }
 
     public async run(msg: CommandMessage, args: MapNewsPostArgs) {
-        const author = args.author ? args.author.user : args.sourceMessage.author;
+        const author = args.author ? args.author : args.sourceMessage.member;
         const targetChannel = args.targetChannel ? args.targetChannel : this.client.getChannel(msg.channel.id);
         const targetMessage = args.targetMessage ? await targetChannel.fetchMessage(args.targetMessage) : void 0;
 
-        const embed = await createNewsEmbed(args.sourceMessage.content, author);
+        const minfo = await createNewsEmbed(args.sourceMessage.content, author);
         let finalMessage: Message;
         if (targetMessage) {
-            finalMessage = await targetMessage.edit(`<@${author.id}>`, embed);
+            finalMessage = await targetMessage.edit(`<@${author.id}> ` + minfo.content, minfo.embed);
         }
         else {
-            finalMessage = await targetChannel.send(`<@${author.id}>`, embed) as Message;
+            finalMessage = await targetChannel.send(`<@${author.id}> ` + minfo.content, minfo.embed) as Message;
             await finalMessage.react('⭐');
         }
 

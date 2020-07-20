@@ -69,8 +69,6 @@ export default class HelpCommand extends MapsterCommand {
         }
         else {
             messages.push(<Message>await msg.reply(stripIndents`
-                To run a command in this DM, simply use ${Command.usage('command', null, null)} with no prefix.
-
                 Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.
 
                 **${showAll ? 'All commands' : `Available commands in __${msg.guild || 'this DM'}__`}**
