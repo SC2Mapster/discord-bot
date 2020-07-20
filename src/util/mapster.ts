@@ -33,8 +33,12 @@ export function handleMapsterException(e: Error, msg: CommandMessage) {
     }
 }
 
-async function fixCurseCDNUrlImage(url: string) {
-    if (/^https:\/\/media\.forgecdn\.net\/attachments\/.+/.test(url)) {
+async function fixInvalidImageURL(url: string) {
+    if (
+        /^https:\/\/media\.forgecdn\.net\/attachments\/.+/.test(url) || // is old CDN
+        !/^https?:\/\/.+/.test(url) || // invalid URL
+        true // just reupload everything
+    ) {
         logger.info(`reuploading to imgur`, url)
         try {
             const imgImage = await imgur.uploadUrl(url);
@@ -46,7 +50,6 @@ async function fixCurseCDNUrlImage(url: string) {
             return;
         }
     }
-    return url;
 }
 
 function findMatchingFileImage(label: string, images: mapster.ProjectImageItem[]) {
@@ -197,7 +200,7 @@ export async function prepareEmbedFile(pfile: mapster.ProjectFile, pimages: maps
     }
     if (pfile.description.embeddedImages.length) {
         for (const item of Array.from(pfile.description.embeddedImages)) {
-            const result = await fixCurseCDNUrlImage(item);
+            const result = await fixInvalidImageURL(item);
             if (result) {
                 frontImage = result;
                 break;
@@ -213,7 +216,7 @@ export async function prepareEmbedFile(pfile: mapster.ProjectFile, pimages: maps
 export async function prepareEmbedProject(project: mapster.ProjectOverview) {
     project.description.embeddedImages = filterBrokenImages(project.description.embeddedImages);
     if (project.description.embeddedImages.length) {
-        project.description.embeddedImages[0] = await fixCurseCDNUrlImage(project.description.embeddedImages[0]);
+        project.description.embeddedImages[0] = await fixInvalidImageURL(project.description.embeddedImages[0]);
     }
     return embedProject(project);
 }

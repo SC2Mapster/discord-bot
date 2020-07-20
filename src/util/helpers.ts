@@ -31,7 +31,8 @@ export function sanitizeForeignHtml(s: string) {
     s = s.replace(/<a href="([^"]+)">([^<]+)<\/a>/g, (org, name, link) => {
         return `[${link}](${name})`;
     });
-    s = s.replace(/<\/?(em|b|strong)>/g, '**');
+    s = s.replace(/<\/?(b|strong)>/g, '**');
+    s = s.replace(/<\/?(em)>/g, '*');
     s = s.replace(/<\/?(i)>/g, '*');
     s = s.replace(/<\/?(code)>/g, '`');
     s = s.replace(/<\/(li)>/g, '\n');
