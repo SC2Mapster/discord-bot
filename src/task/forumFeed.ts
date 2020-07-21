@@ -48,6 +48,8 @@ export class ForumFeedTask extends Task {
         const bncats = {
             'map-showcase': 'Map Showcase',
             'editor-discussion': 'Editor Discussion',
+            'ptr-bug-report': 'PTR Bug Report',
+            'ptr-feedback': 'PTR Feedback',
         };
         for (const catKey in bncats) {
             const catName = (<any>bncats)[catKey];
