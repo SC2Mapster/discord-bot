@@ -70,7 +70,7 @@ export function parseNGDPRegionTable<T extends string>(data: string) {
         }
         else {
             if (line.startsWith('##')) continue;
-            const rgx = /(?:^|\|)([^|]+)/g;
+            const rgx = /([^|]*)(\n|\|)/g;
             let i = 0;
             const entry = new Map<T, string>();
             let region: NGDPRegion = null;
@@ -96,10 +96,10 @@ export type NGDPResource = 'cdns'
     | 'blob/install'
 ;
 
-export async function getResource(res: NGDPResource): Promise<string> {
-    return await request.get(`http://us.patch.battle.net:1119/s2/${res}`);
+export async function getResource(game: string, res: NGDPResource): Promise<string> {
+    return await request.get(`http://us.patch.battle.net:1119/${game}/${res}`);
 }
 
-export async function getVersionInfo() {
-    return parseNGDPRegionTable<NGDPVersionKey>(await getResource('versions'));
+export async function getVersionInfo(game: 's2' | 's2t') {
+    return parseNGDPRegionTable<NGDPVersionKey>(await getResource(game, 'versions'));
 }

@@ -20,7 +20,7 @@ export class BnetPatchStatusCommand extends MapsterCommand {
     }
 
     public async run(msg: CommandMessage, args: string[]) {
-        const s2versions = await getVersionInfo();
+        const s2versions = await getVersionInfo('s2');
         let desc = '';
         for (const [region, info] of s2versions) {
             desc += `${region.toUpperCase()} - ${info.get('VersionsName')}\n`;

@@ -10,10 +10,12 @@ const turndownService = new TurndownService({
     headingStyle: 'atx',
 });
 
+export type PatchNoteReleaseType = 'RETAIL' | 'PTR';
+
 export type PatchNoteEntry = {
     program: string | 'SC2';
     locale: string | 'en_US';
-    type: string | 'RETAIL';
+    type: PatchNoteReleaseType;
     patchVersion: string;
     status: string | 'LIVE';
     detail: string;
@@ -37,8 +39,8 @@ export type PatchNoteResult = {
 
 const oauthBase = 'https://cache-us.battle.net/system/cms/oauth';
 
-export async function getPatchNotes(program: string = 's2', pageSize: number = 20) {
-    const uri = `${oauthBase}/api/patchnote/list?program=${program}&region=US&locale=enUS&type=&page=1&pageSize=${pageSize}&orderBy=buildNumber&buildNumberMin=0&buildNumberMax=`;
+export async function getPatchNotes(program: string = 's2', pageSize: number = 20, type: PatchNoteReleaseType = 'RETAIL') {
+    const uri = `${oauthBase}/api/patchnote/list?program=${program}&region=US&locale=enUS&type=${type}&page=1&pageSize=${pageSize}&orderBy=buildNumber&buildNumberMin=0&buildNumberMax=`;
     const s = await request.get(uri);
     return <PatchNoteResult>JSON.parse(s);
 }
@@ -103,7 +105,7 @@ export async function genPatchNotesMsg(pnote: PatchNoteEntry) {
     await browser.close();
 
     return {
-        content: `StarCraft II **${pnote.patchVersion}** Patch Notes — \`${pnote.buildNumber}\`\n`,
+        content: `StarCraft II — Patch notes released — **${pnote.patchVersion}.${pnote.buildNumber}** \`${pnote.type}\`\n`,
         options: <MessageOptions>{
             files: [
                 {

@@ -38,17 +38,23 @@ export class AdminConfigGetCommand extends AdminCommand {
             // return msg.code('md', JSON.stringify(globalSettings, null, 4));
         }
         else {
-            let val: string | object  = this.client.settings.get(args.key, 'null');
-            if (typeof val === 'string') {
-                val = val.replace(/```/gm, '``\\`')
+            let orgVal: string | object  = this.client.settings.get(args.key, 'null');
+
+            let val: string;
+            if (typeof orgVal === 'string') {
+                val = orgVal.replace(/```/gm, '``\\`')
             }
             else {
-                val = JSON.stringify(val, null, 4);
+                val = JSON.stringify(orgVal, null, 4);
             }
             return msg.embed({
                 title: args.key,
                 // description: discord.Util.escapeMarkdown(`${val}`),
                 description: '```\n' + val + '\n```',
+                fields: [{
+                    name: 'Type',
+                    value: typeof orgVal,
+                }],
             });
         }
     }
@@ -81,17 +87,22 @@ export class AdminConfigSetCommand extends AdminCommand {
         const globalSettings = settingsContainer.has('global') ? settingsContainer.get('global') : {};
 
         const prevValue = this.client.settings.get(args.key, 'null');
+
         if (args.value === 'null') {
             await this.client.settings.remove(args.key);
         }
         else {
-            await this.client.settings.set(args.key, args.value);
+            let parsedValue = JSON.parse(args.value);
+            if (typeof parsedValue === 'number') {
+                parsedValue = args.value;
+            }
+            else if (typeof parsedValue === 'undefined') {
+                return msg.reply(`Failed to parse value.`)
+            }
+            await this.client.settings.set(args.key, parsedValue);
         }
 
-        return msg.embed({
-            title: `Previous value:`,
-            description: prevValue,
-        }, `Config for \`${args.key}\` updated.`)
+        return msg.reply(`Config for \`${args.key}\` updated.`)
     }
 }
 
