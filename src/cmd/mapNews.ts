@@ -28,7 +28,7 @@ async function fixIUrl(s: string) {
 }
 
 async function createNewsEmbed(input: string, author: GuildMember) {
-    const mData = parseMdPayload(input);
+    const mData = parseMdPayload(input, false);
 
     const embed = new RichEmbed({
         author: {
@@ -78,6 +78,22 @@ export class MapNewsPostPreview extends MapsterCommand {
             memberName: 'mn.draft',
             description: '',
             guildOnly: true,
+            argsPromptLimit: 0,
+            argsCount: 0,
+            args: [
+                {
+                    key: 'usersMessage',
+                    type: 'message',
+                    prompt: '',
+                    default: 0,
+                },
+                {
+                    key: 'botsMessage',
+                    type: 'message',
+                    prompt: '',
+                    default: 0,
+                },
+            ],
         });
 
         this.client.on('channelCreate', this.onChannelCreate.bind(this));
@@ -198,7 +214,7 @@ export class MapNewsPostPreview extends MapsterCommand {
     }
 
     protected async onMessageUpdate(oldMsg: Message, newMsg: Message) {
-        const draftMsg = this.draftMessages.get(oldMsg.id);
+        const draftMsg = this.draftMessages.get(newMsg.id);
         if (!draftMsg) return;
         try {
             const minfo = await createNewsEmbed(newMsg.content, newMsg.member);
@@ -216,8 +232,19 @@ export class MapNewsPostPreview extends MapsterCommand {
         }
     }
 
-    public async run(msg: CommandMessage) {
-        await this.setupChannelListenerForUser(msg.channel as TextChannel, msg.author);
+    public async run(msg: CommandMessage, args: { usersMessage: Message, botsMessage: Message }) {
+        if (args.usersMessage && args.botsMessage) {
+            if (msg.member.permissions.has('MANAGE_MESSAGES') && args.botsMessage.editable) {
+                this.draftMessages.set(args.usersMessage.id, {
+                    userMsg: args.usersMessage,
+                    botMsg: args.botsMessage,
+                });
+                await this.onMessageUpdate(args.usersMessage, args.usersMessage);
+            }
+        }
+        else {
+            await this.setupChannelListenerForUser(msg.channel as TextChannel, msg.author);
+        }
         await msg.react('✔');
         return [] as Message[];
     }

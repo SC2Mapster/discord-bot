@@ -137,9 +137,9 @@ export class MapsterBot extends CommandoClient {
 
         this.setProvider(new Promise(async (resolve, reject) => {
             this.db = await orm.createConnection();
-            await resolve(new SQLiteProvider(await sqlite.open('settings.db')));
-        })).then(() => {
-            this.initialized();
+            resolve(new SQLiteProvider(await sqlite.open('settings.db')));
+        })).then(async () => {
+            await this.initialized();
         });
     }
 

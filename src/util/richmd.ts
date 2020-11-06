@@ -9,25 +9,35 @@ interface MdPayload {
 }
 
 const reFrontmatterBlock = /^(?:---|```|📥📥)\n((?:(?!-).+\n)*)(?:---|```|📤📤)/;
+const reFrontmatterBlockNoOpening = /^((?:(?!-).+\n)*)(?:---|```|📤📤)/;
 const reFrontmatterValue = /^([\w\d]+)\s*=\s*(.+)$/;
 const reEntryHead = /(?:^|\n+)(#+) ([^\n]+)(?:\n|$)/;
 const reEntryContent = /^\n?((?!#)[^]+?)(?:\n#+ |$)/;
 
-export function parseMdPayload(input: string) {
+export function parseMdPayload(input: string, strict = true) {
     const mContent: MdPayload = {
         fields: [],
         meta: {},
     };
     let buff = input.replace(/^```(?:[\w]+\n)?((?:.*\n*)+)(?=```$)```$/, '$1').trimLeft();
 
-    const fmatches = buff.match(reFrontmatterBlock);
+    let fmatches = buff.match(reFrontmatterBlock);
+    if (!fmatches && !strict) {
+        fmatches = buff.match(reFrontmatterBlockNoOpening);
+    }
+
     if (fmatches) {
         for (const fline of fmatches[1].split('\n')) {
             const fbm = fline.match(reFrontmatterValue);
             if (!fbm) continue;
             mContent.meta[fbm[1].toLowerCase()] = fbm[2];
         }
-        buff = buff.substr(fmatches[0].length).trimLeft();
+        if (!strict && Object.keys(mContent.meta).length === 0) {
+            // do nothing
+        }
+        else {
+            buff = buff.substr(fmatches[0].length).trimLeft();
+        }
     }
 
     let matches: RegExpMatchArray;

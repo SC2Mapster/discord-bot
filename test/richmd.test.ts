@@ -1,6 +1,7 @@
 import 'mocha';
 import { assert } from 'chai';
 import { parseMdPayload } from '../src/util/richmd';
+import { stripIndent } from 'common-tags';
 
 describe('richmd', () => {
     it('t1', async () => {
@@ -49,4 +50,18 @@ a
         r = parseMdPayload(`test`.trim());
         console.log(r);
     });
+
+    it('non-strict', async () => {
+        let r = parseMdPayload(stripIndent`
+            IMAGE = https://i.imgur.com/rETvesg.jpg
+            ICON = https://i.imgur.com/rETvesg.jpg
+            DISCORD = https://discord.gg/asdfgh
+            ---
+
+            asd
+        `, false);
+
+        console.log(r);
+    });
 });
+
