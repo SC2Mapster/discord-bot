@@ -1,5 +1,5 @@
-import { Command, CommandMessage } from 'discord.js-commando';
-import { Message, RichEmbed } from 'discord.js';
+import { Command, CommandoMessage } from 'discord.js-commando';
+import { Message, MessageEmbed } from 'discord.js';
 import { MapsterBot, MapsterCommand } from '../bot';
 import * as path from 'path';
 import * as gt from 'plaxtony/lib/src/compiler/types';
@@ -102,7 +102,7 @@ export default class GalaxyCommand extends MapsterCommand {
         const metaDesc = this.store.s2metadata.getSymbolDoc(sym.escapedName, false);
         const trigEl = this.store.s2metadata.findElementByName(sym.escapedName);
 
-        const pembed = new RichEmbed({
+        const pembed = new MessageEmbed({
             title: sym.escapedName,
             description: '',
             color: 0x25a200,
@@ -134,6 +134,7 @@ export default class GalaxyCommand extends MapsterCommand {
             pembed.fields.push({
                 name: 'Declaration',
                 value: '```c\n' + rawcode + '```',
+                inline: false,
             });
             // pembed.description += '\n\n`' + rawcode + '`';
         }
@@ -173,7 +174,7 @@ export default class GalaxyCommand extends MapsterCommand {
             }
 
             if (pembed.footer.text) {
-                pembed.footer.icon_url = 'https://i.imgur.com/na2BkAd.png';
+                pembed.footer.iconURL = 'https://i.imgur.com/na2BkAd.png';
             }
         }
 
@@ -184,7 +185,7 @@ export default class GalaxyCommand extends MapsterCommand {
         return pembed;
     }
 
-    public async run(msg: CommandMessage, arg: string) {
+    public async run(msg: CommandoMessage, arg: string) {
         await this.loadup();
         let sym = this.store.resolveGlobalSymbol(arg);
 

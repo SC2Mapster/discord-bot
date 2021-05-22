@@ -1,6 +1,6 @@
 import * as request from 'request-promise-native';
 import { Task } from '../registry';
-import { FileOptions, Message } from 'discord.js';
+import { FileOptions, Message, PartialMessage } from 'discord.js';
 import { logger } from '../bot';
 
 interface PasteEntry {
@@ -49,7 +49,7 @@ export class PasteTask extends Task {
                 });
             }
 
-            const mirrorMsg = (await msg.channel.send(`mirror`, opts)) as Message;
+            const mirrorMsg = await msg.channel.send(`mirror`, opts);
             this.entries.set(msg.id, {
                 originalMsg: msg,
                 mirrorMsg: mirrorMsg,
@@ -66,7 +66,7 @@ export class PasteTask extends Task {
         await this.mirrorMessage(msg);
     }
 
-    async onMessageUpdate(oldMsg: Message, newMsg: Message) {
+    async onMessageUpdate(oldMsg: Message | PartialMessage, newMsg: Message | PartialMessage) {
         const currEntry = this.entries.get(oldMsg.id);
         if (!currEntry || currEntry.originalMsg.id !== oldMsg.id) return;
 
@@ -75,10 +75,10 @@ export class PasteTask extends Task {
         if (currEntry.mirrorMsg.deletable) {
             await currEntry.mirrorMsg.delete();
         }
-        await this.mirrorMessage(newMsg);
+        await this.mirrorMessage(await newMsg.fetch());
     }
 
-    async onMessageDelete(msgDeleted: Message) {
+    async onMessageDelete(msgDeleted: Message | PartialMessage) {
         const currEntry = this.entries.get(msgDeleted.id);
         if (!currEntry || currEntry.originalMsg.id !== msgDeleted.id) return;
         this.entries.delete(msgDeleted.id);

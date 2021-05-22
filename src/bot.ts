@@ -2,8 +2,8 @@ import * as path from 'path';
 import * as util from 'util';
 import * as fs from 'fs';
 import * as sqlite from 'sqlite';
-import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandMessage, CommandInfo } from 'discord.js-commando';
-import { User, TextChannel, Message, MessageOptions, Guild } from 'discord.js';
+import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandoMessage, CommandInfo } from 'discord.js-commando';
+import { User, TextChannel, Message, MessageOptions, Guild, PartialMessage } from 'discord.js';
 import * as orm from 'typeorm';
 import * as winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
@@ -70,9 +70,11 @@ export class MapsterBot extends CommandoClient {
     db: orm.Connection;
 
     constructor(options?: MapsterOptions) {
-        options.disableEveryone = true;
-        options.unknownCommandResponse = false;
-        options.commandEditableDuration = 300;
+        options = Object.assign<CommandoClientOptions, CommandoClientOptions>({
+            owner: process.env.BOT_OWNER.split(','),
+            commandEditableDuration: 300,
+            disableMentions: 'everyone',
+        }, options);
         super(options);
 
         this.log = logger;
@@ -80,34 +82,24 @@ export class MapsterBot extends CommandoClient {
         this.on('error', (e) => logger.error(e.message, e));
         this.on('warn', (s) => logger.warn(s));
         this.on('debug', (s) => logger.debug(s));
-        this.on('ready', async () => {
-            logger.info(`Logged in as ${this.user.tag} (${this.user.id})`);
+        this.on('ready', () => {
+            logger.info(`Logged in as ${this.user.tag} (${this.user.id}) guilds: ${this.guilds.cache.size} channels: ${this.channels.cache.size}`);
+            for (const guild of this.guilds.cache.array().sort((a, b) => a.joinedTimestamp - b.joinedTimestamp).values()) {
+                logger.info(`Connected with guild "${guild.name}" (${guild.id}) members: ${guild.memberCount} channels: ${guild.channels.cache.size}`);
+            }
         });
         this.on('disconnect', () => logger.warn('Disconnected!'));
-        this.on('reconnecting', () => logger.warn('Reconnecting...'));
-        this.on('commandRun', (cmd, p, msg) => {
-            logger.info(`Command run ${cmd.memberName}, Author '${msg.author.username}', msg: ${msg.content}`);
+        this.on('shardReconnecting', (id) => logger.warn(`Shard reconnecting ${id} ..`));
+        this.on('rateLimit', (d) => logger.warn('ratelimit', d));
+
+        this.on('commandRun', (cmd, p, msg, args) => {
+            logger.info(`Command run ${cmd.memberName} by ${msg.author.tag} (${msg.author.id})`, msg.content, args);
         });
-        this.on('commandError', (cmd, err) => {
+        this.on('commandError', (cmd, err, cmsg, args, pattern) => {
             if (err instanceof FriendlyError) {
                 return;
             }
             logger.error(`Error in command ${cmd.groupID}:${cmd.memberName}`, err);
-        });
-        this.on('messageDelete', async (msg) => {
-            const r = (<Map<string, CommandMessage>>(<any>this.dispatcher)._results).get(msg.id);
-            if (r && !r.message.cleanContent.endsWith('$')) {
-                const cmd = r.command;
-                if (cmd instanceof MapsterCommand && cmd.minfo.deleteOnUserCommandDelete) {
-                    const responses: Message[] = (<any>r.responses)[msg.id]
-                    for (const rlist of oentries(r.responses)) {
-                        for (const mresp of <any>rlist) {
-                            await mresp.delete();
-                        }
-                    }
-                }
-            }
-            logger.info(`Message deleted; '${msg.channel.toString()}', '${msg.author.username}', msg: ${msg.content}`);
         });
         this.on('messageUpdate', (oldMessage, newMessage) => {
             logger.info('Message update');
@@ -126,8 +118,18 @@ export class MapsterBot extends CommandoClient {
         this.registry.registerGroups([
             ['admin', 'Admin'],
             ['mod', 'Mod'],
+            ['util', 'Utility'],
             ['general', 'General'],
         ]);
+        this.registry.registerDefaultCommands({
+            help: false,
+            prefix: false,
+            ping: true,
+            eval: false,
+            commandState: false,
+            unknownCommand: false,
+        });
+
         if (process.env.ENV !== 'dev') {
         }
         this.registry.registerCommandsIn({
@@ -162,7 +164,7 @@ export class MapsterBot extends CommandoClient {
         logger.info('All tasks loaded!');
     }
 
-    protected logDeletedMessage(msg: Message) {
+    protected logDeletedMessage(msg: Message | PartialMessage) {
         logger.info('', {
             author: {
                 id: msg.author.id,
@@ -174,8 +176,8 @@ export class MapsterBot extends CommandoClient {
             attachments: msg.attachments.map((attachment) => {
                 return {
                     id: attachment.id,
-                    filename: attachment.filename,
-                    filesize: attachment.filesize,
+                    filename: attachment.name,
+                    filesize: attachment.size,
                     proxyURL: attachment.proxyURL,
                     url: attachment.url,
                 };
@@ -198,7 +200,7 @@ export class MapsterBot extends CommandoClient {
     }
 
     public getChannel(id: string) {
-        return <TextChannel>this.user.client.channels.get(id);
+        return <TextChannel>this.channels.cache.get(id);
     }
 
     public reloadJobScheduler() {
@@ -222,7 +224,7 @@ export abstract class MapsterCommand extends Command {
 }
 
 export abstract class AdminCommand extends MapsterCommand {
-    public hasPermission(userMsg: CommandMessage) {
+    public hasPermission(userMsg: CommandoMessage) {
         const adminIds = (<string>this.client.settings.get('admin.users-list', '')).split(',');
         return (
             this.client.isOwner(userMsg.author) ||
@@ -232,7 +234,7 @@ export abstract class AdminCommand extends MapsterCommand {
     }
 }
 export abstract class ModCommand extends AdminCommand {
-    public hasPermission(userMsg: CommandMessage) {
+    public hasPermission(userMsg: CommandoMessage) {
         return (
             super.hasPermission(userMsg) ||
             (userMsg.channel.type === 'text' && userMsg.member.permissions.has('MANAGE_CHANNELS'))

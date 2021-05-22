@@ -1,6 +1,6 @@
 import * as discord from 'discord.js';
-import { Command, CommandMessage } from 'discord.js-commando';
-import { Message, RichEmbed, TextChannel } from 'discord.js';
+import { Command, CommandoMessage } from 'discord.js-commando';
+import { Message, MessageEmbedOptions, TextChannel } from 'discord.js';
 import { MapsterBot, AdminCommand } from '../bot';
 import * as schedule from 'node-schedule';
 
@@ -22,7 +22,7 @@ export class AdminConfigGetCommand extends AdminCommand {
         });
     }
 
-    public async run(msg: CommandMessage, args: { key: string }) {
+    public async run(msg: CommandoMessage, args: { key: string }) {
         const settingsContainer = <Map<string,Object>>(<any>this.client.provider).settings;
         const globalSettings = settingsContainer.has('global') ? settingsContainer.get('global') : {};
 
@@ -31,9 +31,11 @@ export class AdminConfigGetCommand extends AdminCommand {
             for (const cfgKey of Object.keys(globalSettings)) {
                 values.push(cfgKey);
             }
-            return msg.embed({
-                title: `- ${values.length}`,
-                description: values.map(v => `\`${v}\``).join('\n'),
+            return msg.reply({
+                embed: {
+                    title: `- ${values.length}`,
+                    description: values.map(v => `\`${v}\``).join('\n'),
+                },
             });
             // return msg.code('md', JSON.stringify(globalSettings, null, 4));
         }
@@ -47,14 +49,16 @@ export class AdminConfigGetCommand extends AdminCommand {
             else {
                 val = JSON.stringify(orgVal, null, 4);
             }
-            return msg.embed({
-                title: args.key,
-                // description: discord.Util.escapeMarkdown(`${val}`),
-                description: '```\n' + val + '\n```',
-                fields: [{
-                    name: 'Type',
-                    value: typeof orgVal,
-                }],
+            return msg.reply({
+                embed: {
+                    title: args.key,
+                    // description: discord.Util.escapeMarkdown(`${val}`),
+                    description: '```\n' + val + '\n```',
+                    fields: [{
+                        name: 'Type',
+                        value: typeof orgVal,
+                    }],
+                },
             });
         }
     }
@@ -82,7 +86,7 @@ export class AdminConfigSetCommand extends AdminCommand {
         });
     }
 
-    public async run(msg: CommandMessage, args: { key: string, value: string }) {
+    public async run(msg: CommandoMessage, args: { key: string, value: string }) {
         const settingsContainer = <Map<string,Object>>(<any>this.client.provider).settings;
         const globalSettings = settingsContainer.has('global') ? settingsContainer.get('global') : {};
 
@@ -125,7 +129,7 @@ export class AdminSchedulerCommand extends AdminCommand {
         });
     }
 
-    public async run(msg: CommandMessage, args: { action: string }) {
+    public async run(msg: CommandoMessage, args: { action: string }) {
         let response = '';
         if (args.action === 'reload') {
             this.client.reloadJobScheduler();
@@ -141,7 +145,10 @@ export class AdminSchedulerCommand extends AdminCommand {
         if (!response) {
             return msg.say('none');
         }
-        return msg.code('js', response.trim());
+        return msg.reply({
+            code: 'js',
+            content: response.trim()
+        });
     }
 }
 
@@ -163,7 +170,7 @@ export class AdminSchedulerInvokeCommand extends AdminCommand {
         });
     }
 
-    public async run(msg: CommandMessage, args: { task: string }) {
+    public async run(msg: CommandoMessage, args: { task: string }) {
         const job = schedule.scheduledJobs[args.task];
         if (job) {
             (<any>job).invoke(new Date());

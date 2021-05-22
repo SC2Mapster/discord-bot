@@ -33,7 +33,7 @@ export class ArchiveStore {
         user.username = duser.username;
         user.discriminator = duser.discriminator;
         user.tag = duser.tag;
-        user.avatarURL = duser.avatarURL;
+        user.avatarURL = duser.defaultAvatarURL;
 
         return await this.em.save(user);
     }
@@ -44,8 +44,8 @@ export class ArchiveStore {
 
         attachment = new MessageAttachment();
         attachment.id = dattachment.id;
-        attachment.filename = dattachment.filename;
-        attachment.filesize = dattachment.filesize;
+        attachment.filename = dattachment.name;
+        attachment.filesize = dattachment.size;
         attachment.width = dattachment.width;
         attachment.height = dattachment.height;
         attachment.url = dattachment.url;
@@ -57,7 +57,7 @@ export class ArchiveStore {
         return await this.em.save(attachment);
     }
 
-    public async updateMessage(dmessage: ds.Message) {
+    public async updateMessage(dmessage: ds.Message | ds.PartialMessage) {
         let msg = await this.em.findOne(Message, dmessage.id);
         if (!msg) {
             msg = new Message();
@@ -154,7 +154,7 @@ export class ArchiveStore {
         return msg;
     }
 
-    public async softDeleteMessage(dmessage: ds.Message) {
+    public async softDeleteMessage(dmessage: ds.Message | ds.PartialMessage) {
         let msg = await this.em.findOne(Message, dmessage.id);
         if (!msg) {
             return;
@@ -202,15 +202,15 @@ export class ArchiveManager extends Task {
     }
 
     private async processChannels() {
-        for (const currentGuild of this.client.guilds.values()) {
-            for (const dchan of currentGuild.channels.values()) {
+        for (const currentGuild of this.client.guilds.cache.values()) {
+            for (const dchan of currentGuild.channels.cache.values()) {
                 if (dchan.type !== 'text') continue;
                 await this.store.updateChannel(<ds.TextChannel>dchan);
             }
 
-            for (const dchan of currentGuild.channels.values()) {
+            for (const dchan of currentGuild.channels.cache.values()) {
                 if (dchan.type !== 'text') continue;
-                await this.syncChannel(<ds.TextChannel>this.client.channels.get(dchan.id), {
+                await this.syncChannel(<ds.TextChannel>this.client.channels.cache.get(dchan.id), {
                     newerThan: new Sugar.Date(Date.now()).addDays(-1).raw,
                 });
             }
@@ -226,7 +226,7 @@ export class ArchiveManager extends Task {
         };
         logger.info(`sync channel BEGIN [#${dchan.name}]`);
         while(true) {
-            const dmessages = (await dchan.fetchMessages(queryOptions)).filter(dmsg => {
+            const dmessages = (await dchan.messages.fetch(queryOptions)).filter(dmsg => {
                 return options.newerThan === null || options.newerThan < dmsg.createdAt;
             });
             if (dmessages.size === 0) break;

@@ -1,5 +1,5 @@
 import * as schedule from 'node-schedule';
-import { RichEmbed, Message, TextChannel } from 'discord.js';
+import { Message, TextChannel } from 'discord.js';
 import { MapsterBot, logger } from '../bot';
 import { Task } from '../registry';
 import { embedRecent, createNewConnection } from '../util/mapster';
@@ -30,7 +30,7 @@ export class MapsterRecentTask extends Task {
 
     private async update(fireDate: Date) {
         logger.info('MapsterRecentTask::update');
-        const targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('mapster:recent:channel', null));
+        const targetChannel = <TextChannel>this.client.channels.cache.get(this.client.settings.get('mapster:recent:channel', null));
         if (!targetChannel) {
             logger.warning(`Channel not configured`);
             return;

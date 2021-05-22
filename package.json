@@ -17,17 +17,16 @@
   "scripts": {
     "clean": "rm -r lib/*",
     "start": "node lib/src/start.js",
-    "build": "tsc -p .",
-    "build:watch": "tsc -p . --w",
+    "build": "rm -r lib/* && tsc -p .",
+    "build:watch": "rm -r lib/* && tsc -p . --w",
     "test": "mocha --opts mocha.opts",
-    "test:watch": "mocha --opts mocha.opts --watch",
-    "typeorm": "ts-node ./node_modules/.bin/typeorm"
+    "test:watch": "mocha --opts mocha.opts --watch"
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.3",
     "common-tags": "^1.7.2",
-    "discord.js": "^11.3.0",
-    "discord.js-commando": "^0.10.0",
+    "discord.js": "^12.5.3",
+    "discord.js-commando": "^0.12.3",
     "dotenv": "^5.0.0",
     "fs-extra": "^7.0.0",
     "html-entities": "^1.2.1",
@@ -64,10 +63,10 @@
     "@types/request-promise-native": "^1.0.17",
     "@types/string-similarity": "^3.0.0",
     "@types/turndown": "^5.0.0",
+    "@types/ws": "^7.4.4",
     "chai": "^4.1.2",
     "mocha": "^6.2.2",
     "source-map-support": "^0.5.3",
-    "ts-node": "^8.4.1",
     "typescript": "^3.7.3"
   }
 }

@@ -1,7 +1,7 @@
 import * as sugar from 'sugar';
 import * as mapster from 'sc2mapster-crawler';
-import { CommandMessage } from 'discord.js-commando';
-import { Message, RichEmbed, TextChannel } from 'discord.js';
+import { CommandoMessage } from 'discord.js-commando';
+import { Message, MessageEmbed, TextChannel } from 'discord.js';
 import * as imgur from 'imgur';
 import * as stringSimilarity from 'string-similarity';
 import { logger } from '../bot';
@@ -24,7 +24,7 @@ export async function createNewConnection() {
     return ncon;
 }
 
-export function handleMapsterException(e: Error, msg: CommandMessage) {
+export function handleMapsterException(e: Error, msg: CommandoMessage) {
     if (e.message.startsWith('Error: HTTP code: ')) {
         return msg.reply((<Error>e).message.substring('Error: '.length));
     }
@@ -94,7 +94,7 @@ function filterBrokenImages(urls: string[]) {
 }
 
 export function embedProject(project: mapster.ProjectOverview) {
-    const pembed = new RichEmbed({
+    const pembed = new MessageEmbed({
         title: project.base.title,
         description: sanitizeForeignHtml(sugar.String.truncate(project.description.html, 1000)),
         author: {
@@ -138,7 +138,7 @@ export function embedProject(project: mapster.ProjectOverview) {
 }
 
 export function embedFile(pfile: mapster.ProjectFile, frontImage?: string) {
-    const pembed = new RichEmbed({
+    const pembed = new MessageEmbed({
         title: pfile.title,
         description: sanitizeForeignHtml(sugar.String.truncate(pfile.description.html, 1000)),
         author: {
@@ -226,7 +226,7 @@ export async function embedRecent(opts: { refdate: Date, conn?: mapster.MapsterC
     let plist = await getLatestProjects(conn, 'assets', opts.refdate)
     plist = plist.concat(await getLatestProjects(conn, 'maps', opts.refdate));
 
-    const embeds: RichEmbed[] = [];
+    const embeds: MessageEmbed[] = [];
     let nextRefDate: Date = null;
     for (const project of plist.reverse()) {
         if (project.createdAt > opts.refdate) {
@@ -250,7 +250,7 @@ export async function embedRecent(opts: { refdate: Date, conn?: mapster.MapsterC
 }
 
 export function embedForumThread(fthread: mapster.ForumThread) {
-    const embed = new RichEmbed({
+    const embed = new MessageEmbed({
         title: fthread.title,
         description: sanitizeForeignHtml(sugar.String.truncate(fthread.posts[0].content.html, 1000)),
         author: {

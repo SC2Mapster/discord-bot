@@ -1,6 +1,6 @@
 import * as schedule from 'node-schedule';
 import { stripIndents } from 'common-tags';
-import { RichEmbed, Message, RichEmbedOptions } from 'discord.js';
+import { Message, MessageEmbedOptions } from 'discord.js';
 import * as Sugar from 'sugar';
 import { MapsterBot, logger } from '../bot';
 import { Task } from '../registry';
@@ -117,7 +117,7 @@ export class BnetPatchNotifierTask extends Task {
 }
 
 function genNotificationMsg(upcoming: S2PatchReleaseInfo, footerText: string) {
-    return <RichEmbedOptions>{
+    return <MessageEmbedOptions>{
         title: `StarCraft II — New version has been deployed!`,
         description: stripIndents`
             ➤  __${upcoming.version}.${upcoming.build.toString()}__

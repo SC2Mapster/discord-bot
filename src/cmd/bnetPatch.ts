@@ -1,5 +1,5 @@
-import { CommandMessage } from 'discord.js-commando';
-import { Message, RichEmbed } from 'discord.js';
+import { CommandoMessage } from 'discord.js-commando';
+import { Message } from 'discord.js';
 import * as Sugar from 'sugar';
 import { getVersionInfo } from '../util/ngdp';
 import { MapsterCommand, MapsterBot } from '../bot';
@@ -19,7 +19,7 @@ export class BnetPatchStatusCommand extends MapsterCommand {
         });
     }
 
-    public async run(msg: CommandMessage, args: string[]) {
+    public async run(msg: CommandoMessage, args: string[]) {
         const s2versions = await getVersionInfo('s2');
         let desc = '';
         for (const [region, info] of s2versions) {
@@ -44,7 +44,7 @@ export class BnetPatchListCommand extends MapsterCommand {
         });
     }
 
-    public async run(msg: CommandMessage, arg: string) {
+    public async run(msg: CommandoMessage, arg: string) {
         const date = new Sugar.Date(arg.length ? arg : 'now');
         if (!date.isValid()) {
             return msg.reply('invalid date');
@@ -82,7 +82,7 @@ export class BnetPatchNotesCommand extends MapsterCommand {
         });
     }
 
-    public async run(msg: CommandMessage, arg: string) {
+    public async run(msg: CommandoMessage, arg: string) {
         const plist = await getCachedNotes();
         const pnote = arg.length ? plist.get(arg) : Array.from(plist.values())[0];
         if (!pnote) {
@@ -90,6 +90,6 @@ export class BnetPatchNotesCommand extends MapsterCommand {
         }
 
         const tmp = await genPatchNotesMsg(pnote);
-        return msg.say(tmp.content, tmp.options)
+        return msg.say(tmp.options)
     }
 }

@@ -1,5 +1,5 @@
-import { Command, CommandMessage } from 'discord.js-commando';
-import { Message, RichEmbed, TextChannel, GuildResolvable } from 'discord.js';
+import { Command, CommandoMessage } from 'discord.js-commando';
+import { Message, MessageEmbed, TextChannel, GuildResolvable } from 'discord.js';
 import * as discord from 'discord.js';
 import * as util from 'util';
 import { stripIndents } from 'common-tags';
@@ -8,7 +8,7 @@ import { embedProject, embedFile, embedForumThread, prepareEmbedFile, getActiveC
 import * as q from '../util/query';
 
 function embedWiki(wres: q.ResultWikiItem) {
-    const wembed = new RichEmbed({
+    const wembed = new MessageEmbed({
         title: wres.title.replace(' - SC2Mapster Wiki', '').replace('/', ' / '),
         description: wres.description,
         url: wres.url,
@@ -21,7 +21,7 @@ function embedWiki(wres: q.ResultWikiItem) {
     if (wres.meta) {
         const m = /^(\w+ [0-9]{1,2}, [0-9]{4})\s*\-?$/i.exec(wres.meta)
         if (m) {
-            wembed.timestamp = new Date(m[1]);
+            wembed.timestamp = new Date(m[1]).getTime();
         }
         else {
             wembed.footer.text += ' • ' + wres.meta;
@@ -87,7 +87,7 @@ export class QueryCommand extends MapsterCommand {
         });
     }
 
-    public async run(msg: CommandMessage, args: string) {
+    public async run(msg: CommandoMessage, args: string) {
         if (!msg.channel.typing) {
             msg.channel.startTyping();
         }
@@ -138,6 +138,7 @@ export class QueryCommand extends MapsterCommand {
                         embed.fields.push({
                             name: 'Overview',
                             value: results[0].description,
+                            inline: false,
                         });
                     }
                     rmsg = await msg.embed(embed);

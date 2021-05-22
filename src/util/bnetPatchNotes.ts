@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as request from 'request-promise-native';
 import * as Sugar from 'sugar';
 import TurndownService = require('turndown');
-import { RichEmbed, Util, MessageOptions } from 'discord.js';
+import { Util, MessageOptions } from 'discord.js';
 import * as github from '../github';
 import puppeteer from 'puppeteer';
 

@@ -1,6 +1,6 @@
 import * as sugar from 'sugar';
 import * as schedule from 'node-schedule';
-import { RichEmbed, Message, TextChannel } from 'discord.js';
+import { MessageEmbed, Message, TextChannel } from 'discord.js';
 import { MapsterBot, logger } from '../bot';
 import { Task } from '../registry';
 import { fetchLatestInSubforum, BnetForumSubmission } from '../util/bnetForum';
@@ -22,7 +22,7 @@ export class ForumFeedTask extends Task {
             this.mconn = await createNewConnection();
         }
 
-        this.targetChannel = <TextChannel>this.client.user.client.channels.get(this.client.settings.get('fm-feed.channel', null));
+        this.targetChannel = <TextChannel>this.client.user.client.channels.cache.get(this.client.settings.get('fm-feed.channel', null));
         if (!this.targetChannel) {
             logger.warning(`Channel not configured`);
             return;
@@ -100,7 +100,7 @@ export class ForumFeedTask extends Task {
 }
 
 function prepareBnetEmbed(entry: BnetForumSubmission, categoryName: string) {
-    const pembed = new RichEmbed({
+    const pembed = new MessageEmbed({
         title: `${entry.topic.title} #${entry.post.post_number}`,
         description: sanitizeForeignHtml(sugar.String.truncate(entry.post.cooked, 1000)),
         author: {
@@ -120,7 +120,7 @@ function prepareBnetEmbed(entry: BnetForumSubmission, categoryName: string) {
 }
 
 function prepareMapsterEmbed(entry: MapsterForumSubmission) {
-    const pembed = new RichEmbed({
+    const pembed = new MessageEmbed({
         title: `${entry.post.thread.title} #${entry.post.postNumber}`,
         description: sanitizeForeignHtml(sugar.String.truncate(entry.post.content.html, 1000)),
         author: {

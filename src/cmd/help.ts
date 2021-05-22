@@ -1,4 +1,4 @@
-import { Command, CommandoClient, CommandMessage } from 'discord.js-commando';
+import { Command, CommandoClient, CommandoMessage } from 'discord.js-commando';
 import { Message, ReactionEmoji } from 'discord.js';
 import { oneLine, stripIndents } from 'common-tags';
 import { MapsterCommand, MapsterBot } from '../bot';
@@ -37,9 +37,9 @@ export default class HelpCommand extends MapsterCommand {
         });
     }
 
-    public async run(msg: CommandMessage, args: HelpArgs): Promise<Message | Message[]> {
+    public async run(msg: CommandoMessage, args: HelpArgs): Promise<Message | Message[]> {
         const groups = this.client.registry.groups;
-        const commands = this.client.registry.findCommands(args.command, false, msg.message);
+        const commands = this.client.registry.findCommands(args.command, false, msg);
         const showAll = args.command && args.command.toLowerCase() === 'all';
         const messages: Message[] = [];
 
@@ -68,34 +68,21 @@ export default class HelpCommand extends MapsterCommand {
             }
         }
         else {
-            messages.push(<Message>await msg.reply(stripIndents`
+            messages.push(...(await msg.reply(stripIndents`
                 Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.
 
                 **${showAll ? 'All commands' : `Available commands in __${msg.guild || 'this DM'}__`}**
 
-                ${(showAll ? groups : groups.filter(grp => grp.commands.some(cmd => cmd.isUsable(msg.message))))
+                ${(showAll ? groups : groups.filter(grp => grp.commands.some(cmd => cmd.isUsable(msg))))
                     .map(grp => stripIndents`
                         __${grp.name}__
-                        ${(showAll ? grp.commands : grp.commands.filter(cmd => cmd.isUsable(msg.message)))
+                        ${(showAll ? grp.commands : grp.commands.filter(cmd => cmd.isUsable(msg)))
                             .map(cmd => `**${cmd.name}** — ${cmd.description}`).join('\n')
                         }
                     `).join('\n\n')
                 }
-            `, { split: true }));
+            `, { split: true })));
         }
-
-        // try {
-        //     if (msg.channel.type !== 'dm') {
-        //         // messages.push(<Message>await msg.reply('Sent you a DM with information.'));
-        //         await msg.react('✔');
-        //         if (msg.deletable) {
-        //             await msg.delete(4000);
-        //         }
-        //     }
-        // } catch(err) {
-        //     // messages.push(<Message>await msg.reply('Unable to send you the help DM. You probably have DMs disabled.'));
-        //     throw err;
-        // }
 
         return messages;
     }
