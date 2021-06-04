@@ -73,7 +73,7 @@ export class MessageEmbed {
     id: number;
 
     @ManyToOne(type => Message, msg => msg.embeds, {
-        onDelete: 'RESTRICT',
+        onDelete: 'CASCADE',
         onUpdate: 'RESTRICT',
     })
     @Index()

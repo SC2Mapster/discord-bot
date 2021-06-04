@@ -50,7 +50,7 @@ export const logger = winston.createLogger({
     ),
     transports: [
         new winston.transports.Console({
-            level: process.env.ENV !== 'dev' ? 'error' : 'debug',
+            level: process.env.LOG_LEVEL ?? (process.env.ENV !== 'dev' ? 'error' : 'debug'),
             handleExceptions: true,
         }),
         new DailyRotateFile({
@@ -134,10 +134,12 @@ export class MapsterBot extends CommandoClient {
             }
         });
         this.on('messageUpdate', (oldMessage, newMessage) => {
+            if (newMessage.author.bot) return;
             logger.info('Message update');
             this.logDeletedMessage(newMessage);
         });
         this.on('messageDelete', (msg) => {
+            if (msg.author.bot) return;
             logger.info('Message deleted');
             this.logDeletedMessage(msg);
         });

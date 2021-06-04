@@ -7,7 +7,7 @@ export class MessageAttachment {
     id: string;
 
     @ManyToOne(type => Message, msg => msg.attachments, {
-        onDelete: 'RESTRICT',
+        onDelete: 'CASCADE',
         onUpdate: 'RESTRICT',
     })
     @Index()

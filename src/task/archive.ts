@@ -166,6 +166,7 @@ export class ArchiveStore {
 
 export class ArchiveManager extends Task {
     readonly store = new ArchiveStore();
+    readonly ignoredChannels = new Set<string>(Array.from((process.env.ARCHIVE_IGNORE_CHANNELS ?? '').split(',')));
 
     constructor(bot: MapsterBot) {
         super(bot, {});
@@ -181,19 +182,23 @@ export class ArchiveManager extends Task {
         });
         this.client.on('message', async (dmessage) => {
             if (dmessage.channel.type === 'dm') return;
+            if (this.ignoredChannels.has(dmessage.channel.id)) return;
             await this.store.updateMessage(dmessage);
         });
         this.client.on('messageUpdate', async (old, dmessage) => {
             if (dmessage.channel.type === 'dm') return;
+            if (this.ignoredChannels.has(dmessage.channel.id)) return;
             await this.store.updateMessage(dmessage);
         });
         this.client.on('messageDelete', async (dmessage) => {
             if (dmessage.channel.type === 'dm') return;
+            if (this.ignoredChannels.has(dmessage.channel.id)) return;
             await this.store.softDeleteMessage(dmessage);
         });
         this.client.on('messageDeleteBulk', async (dmessages) => {
             for (const dmessage of dmessages.values()) {
-                if (dmessage.channel.type === 'dm') return;
+                if (dmessage.channel.type === 'dm') continue;
+                if (this.ignoredChannels.has(dmessage.channel.id)) continue;
                 await this.store.softDeleteMessage(dmessage);
             }
         });
@@ -210,6 +215,7 @@ export class ArchiveManager extends Task {
 
             for (const dchan of currentGuild.channels.cache.values()) {
                 if (dchan.type !== 'text') continue;
+                if (this.ignoredChannels.has(dchan.id)) continue;
                 await this.syncChannel(<ds.TextChannel>this.client.channels.cache.get(dchan.id), {
                     newerThan: new Sugar.Date(Date.now()).addDays(-1).raw,
                 });

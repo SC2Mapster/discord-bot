@@ -21,7 +21,7 @@ export class Message {
     id: string;
 
     @ManyToOne(type => Channel, {
-        onDelete: 'RESTRICT',
+        onDelete: 'CASCADE',
         onUpdate: 'RESTRICT',
     })
     @Index()
