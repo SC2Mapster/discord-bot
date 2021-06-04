@@ -17,4 +17,8 @@ export abstract class Task {
 
     abstract async load(): Promise<void>;
     async unload() {}
+
+    get conn() {
+        return this.client.db;
+    }
 }

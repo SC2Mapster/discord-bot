@@ -3,7 +3,7 @@ import * as util from 'util';
 import * as fs from 'fs';
 import * as sqlite from 'sqlite';
 import { CommandoClient, CommandoClientOptions, CommandDispatcher, FriendlyError, SQLiteProvider, Command, CommandoMessage, CommandInfo } from 'discord.js-commando';
-import { User, TextChannel, Message, MessageOptions, Guild, PartialMessage } from 'discord.js';
+import { User, TextChannel, Message, MessageOptions, Guild, PartialMessage, DMChannel } from 'discord.js';
 import * as orm from 'typeorm';
 import * as winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
@@ -17,6 +17,7 @@ import { NotablePinTask } from './task/notablepin';
 import { MapsterCommonTask } from './task/mcommon';
 import { PasteTask } from './task/paste';
 import { ForumFeedTask } from './task/forumFeed';
+import { Task } from './registry';
 
 if (!fs.existsSync('logs')) fs.mkdirSync('logs');
 export const logger = winston.createLogger({
@@ -68,16 +69,37 @@ export type MapsterOptions = CommandoClientOptions & {
 export class MapsterBot extends CommandoClient {
     log: winston.Logger;
     db: orm.Connection;
+    protected tasks: {[key: string]: Task};
 
     constructor(options?: MapsterOptions) {
         options = Object.assign<CommandoClientOptions, CommandoClientOptions>({
             owner: process.env.BOT_OWNER.split(','),
             commandEditableDuration: 300,
             disableMentions: 'everyone',
+            ws: {
+                intents: [
+                    'GUILDS',
+                    'GUILD_MEMBERS',
+                    'GUILD_BANS',
+                    'GUILD_EMOJIS',
+                    'GUILD_INTEGRATIONS',
+                    'GUILD_WEBHOOKS',
+                    'GUILD_INVITES',
+                    'GUILD_VOICE_STATES',
+                    'GUILD_PRESENCES',
+                    'GUILD_MESSAGES',
+                    'GUILD_MESSAGE_REACTIONS',
+                    // 'GUILD_MESSAGE_TYPING',
+                    'DIRECT_MESSAGES',
+                    'DIRECT_MESSAGE_REACTIONS',
+                    // 'DIRECT_MESSAGE_TYPING',
+                ],
+            },
         }, options);
         super(options);
 
         this.log = logger;
+        this.tasks = {};
 
         this.on('error', (e) => logger.error(e.message, e));
         this.on('warn', (s) => logger.warn(s));
@@ -100,6 +122,16 @@ export class MapsterBot extends CommandoClient {
                 return;
             }
             logger.error(`Error in command ${cmd.groupID}:${cmd.memberName}`, err);
+        });
+
+        this.on('guildCreate', (guild) => logger.info(`joined guild ${guild.name} (${guild.id})`));
+        this.on('guildDelete', (guild) => logger.info(`left guild ${guild.name} (${guild.id})`));
+        this.on('guildUnavailable', (guild) => logger.info(`guild unavailable ${guild.name} (${guild.id})`));
+
+        this.on('message', (msg) => {
+            if (msg.channel instanceof DMChannel && msg.author.id !== this.user.id) {
+                logger.debug(`Received DM from ${msg.author.tag} (${msg.author.id})`, msg.content);
+            }
         });
         this.on('messageUpdate', (oldMessage, newMessage) => {
             logger.info('Message update');
@@ -146,22 +178,32 @@ export class MapsterBot extends CommandoClient {
     }
 
     protected async initialized() {
-        const availableTasks: typeof MapsterCommonTask[] = [
+        const availableTasks = [
             NotablePinTask,
             MapsterCommonTask,
             PasteTask,
+            ...(process.env.ENV !== 'dev' ? [
+                MapsterRecentTask,
+                ForumFeedTask,
+                BnetPatchNotifierTask,
+                ArchiveManager,
+            ] : []),
         ];
 
-        if (process.env.ENV !== 'dev') {
-            availableTasks.push(MapsterRecentTask);
-            availableTasks.push(ForumFeedTask);
-            availableTasks.push(BnetPatchNotifierTask);
-            availableTasks.push(ArchiveManager);
-        }
-
-        const loadedTasks = availableTasks.map(v => new v(this));
-        await Promise.all(loadedTasks.map(v => v.load()));
-        logger.info('All tasks loaded!');
+        await Promise.all(availableTasks.map(async v => {
+            try {
+                logger.verbose(`Loading task ${v.name}`);
+                const t = new v(this);
+                await (t).load();
+                this.tasks[v.name] = t;
+                logger.info(`Task ${v.name} loaded successfully`);
+                return v;
+            }
+            catch (err) {
+                logger.error(`Task ${v.name} failed to load`, err);
+            }
+        }));
+        logger.info(`Init completed`);
     }
 
     protected logDeletedMessage(msg: Message | PartialMessage) {
@@ -204,6 +246,10 @@ export class MapsterBot extends CommandoClient {
     }
 
     public reloadJobScheduler() {
+    }
+
+    public getTask<T extends Task>(type: { new(...args: any[]): T ;}): T {
+        return this.tasks[type.name] as T;
     }
 }
 

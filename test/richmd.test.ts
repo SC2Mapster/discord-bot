@@ -31,7 +31,7 @@ NA: \`battlenet:://starcraft/map/1/312195\`
 EU: \`battlenet:://starcraft/map/2/220102\`
 KR: \`battlenet:://starcraft/map/3/134654\`
         `.trim());
-        console.log(r);
+        // console.log(r);
 
         r = parseMdPayload(`
 \`\`\`
@@ -45,10 +45,10 @@ a
 
 \`\`\`
         `.trim());
-        console.log(r);
+        // console.log(r);
 
         r = parseMdPayload(`test`.trim());
-        console.log(r);
+        // console.log(r);
     });
 
     it('non-strict', async () => {
@@ -61,7 +61,7 @@ a
             asd
         `, false);
 
-        console.log(r);
+        // console.log(r);
     });
 });
 
