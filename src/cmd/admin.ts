@@ -1,8 +1,8 @@
-import * as discord from 'discord.js';
 import { Command, CommandoMessage } from 'discord.js-commando';
-import { Message, MessageEmbedOptions, TextChannel } from 'discord.js';
+import { Message, MessageEmbedOptions, TextChannel, MessageOptions as DiscordMessageOptions, GuildEmoji } from 'discord.js';
 import { MapsterBot, AdminCommand } from '../bot';
 import * as schedule from 'node-schedule';
+import { buildComplexMessage, urlOfMessage } from '../common';
 
 export class AdminConfigGetCommand extends AdminCommand {
     constructor(client: MapsterBot) {
@@ -96,7 +96,13 @@ export class AdminConfigSetCommand extends AdminCommand {
             await this.client.settings.remove(args.key);
         }
         else {
-            let parsedValue = JSON.parse(args.value);
+            let parsedValue: string | number | undefined = void 0;
+            try {
+                parsedValue = JSON.parse(args.value);
+            }
+            catch (err) {
+                parsedValue = args.value;
+            }
             if (typeof parsedValue === 'number') {
                 parsedValue = args.value;
             }
@@ -178,6 +184,113 @@ export class AdminSchedulerInvokeCommand extends AdminCommand {
         }
         else {
             return msg.say('Task not found');
+        }
+    }
+}
+
+interface AdminMessageSendArgs {
+    sourceMessage: Message;
+    targetChannel: TextChannel;
+    targetMessageId?: string;
+}
+
+export class AdminMessageSendComplex extends AdminCommand {
+    constructor(client: MapsterBot) {
+        super(client, {
+            name: 'a.msg.sendc',
+            group: 'admin',
+            memberName: 'a.msg.sendc',
+            description: 'Send complex message. (Or optionally edit if targetMessageId is provided)',
+            args: [
+                {
+                    key: 'sourceMessage',
+                    type: 'message',
+                    prompt: 'Provide source message ID (must be in the same channel the command is issued in)',
+                },
+                {
+                    key: 'targetChannel',
+                    type: 'text-channel',
+                    prompt: 'Provide target channel',
+                },
+                {
+                    key: 'targetMessageId',
+                    type: 'string',
+                    prompt: 'Provide target message ID',
+                    default: '',
+                },
+            ],
+        });
+    }
+
+    public async run(msg: CommandoMessage, args: AdminMessageSendArgs) {
+        const targetMessage = args.targetMessageId ? await args.targetChannel.messages.fetch(args.targetMessageId) : void 0;
+
+        const minfo = await buildComplexMessage(args.sourceMessage.content);
+        const fMsgOpts: DiscordMessageOptions = {
+            content: minfo.content,
+            embed: minfo.embed,
+            split: false,
+        };
+        let finalMessage: Message;
+        if (targetMessage) {
+            finalMessage = await targetMessage.edit(fMsgOpts);
+        }
+        else {
+            finalMessage = await args.targetChannel.send(fMsgOpts) as Message;
+        }
+        return msg.reply(`Done. ${urlOfMessage(finalMessage)}`);
+    }
+}
+
+interface AdminMessageReactionArgs {
+    targetChannel: TextChannel;
+    targetMessageId: string;
+    emoji: string | GuildEmoji;
+}
+
+export class AdminMessageReaction extends AdminCommand {
+    constructor(client: MapsterBot) {
+        super(client, {
+            name: 'a.msg.react',
+            group: 'admin',
+            memberName: 'a.msg.react',
+            description: 'Add or remove bots reaction from specified message',
+            args: [
+                {
+                    key: 'targetChannel',
+                    type: 'text-channel',
+                    prompt: 'Provide target channel',
+                },
+                {
+                    key: 'targetMessageId',
+                    type: 'string',
+                    prompt: 'Provide target message ID',
+                },
+                {
+                    key: 'emoji',
+                    type: 'default-emoji|custom-emoji',
+                    prompt: 'Provide emoji for the reaction',
+                },
+            ],
+        });
+    }
+
+    public async run(msg: CommandoMessage, args: AdminMessageReactionArgs) {
+        const targetMessage = await args.targetChannel.messages.fetch(args.targetMessageId)
+        const existingReaction = targetMessage.reactions.cache.array()
+            .filter(x => x.me)
+            .find(x => (
+                (typeof args.emoji === 'string' && x.emoji.name === args.emoji) ||
+                (typeof args.emoji !== 'string' && x.emoji.id === args.emoji.id)
+            ))
+        ;
+        if (existingReaction) {
+            await existingReaction.users.remove(this.client.user);
+            return msg.reply(`Removed reaction`);
+        }
+        else {
+            await targetMessage.react(args.emoji);
+            return msg.reply(`Added reaction`);
         }
     }
 }

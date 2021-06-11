@@ -2,9 +2,8 @@ import * as schedule from 'node-schedule';
 import { CommandoMessage } from 'discord.js-commando';
 import { MapsterBot, AdminCommand, ModCommand, MapsterCommand, logger } from '../bot';
 import { Message, MessageEmbed, GuildMember, TextChannel, User, Channel, DiscordAPIError, PartialMessage } from 'discord.js';
-import { parseMdPayload } from '../util/richmd';
-import { sleep, urlOfMessage } from '../util/helpers';
-import { imgurAlbumDirectLink } from '../util/imgurExtra';
+import { sleep } from '../util/helpers';
+import { buildComplexMessage, urlOfMessage } from '../common';
 
 interface DraftMessage {
     userMsg: Message;
@@ -15,56 +14,6 @@ interface DrafPreparationRequest {
     channel: TextChannel;
     user: User;
     reqDate: Date;
-}
-
-async function fixIUrl(s: string) {
-    s = s.replace(/^<?(.*)>?$/, '$1');
-    s = s.replace(/^(https?:\/\/)(imgur.com\/)(\w+)$/i, '$1i.$2$3.jpg');
-    const match = s.match(/^(https?:\/\/)(imgur.com\/a\/)(\w+)$/i)
-    if (match) {
-        s = await imgurAlbumDirectLink(s);
-    }
-    return s;
-}
-
-async function createNewsEmbed(input: string, author: GuildMember) {
-    const mData = parseMdPayload(input, false);
-
-    const embed = new MessageEmbed({
-        author: {
-            name: `${author.displayName}`,
-            icon_url: author.user.defaultAvatarURL,
-        },
-        footer: {},
-    });
-    let content = '';
-
-    if (mData.fields.length) {
-        embed.title = mData.fields[0].title;
-        embed.description = mData.fields[0]?.content ?? ' ';
-
-        mData.fields = mData.fields.slice(1);
-        for (const field of mData.fields) {
-            embed.addField(field.title, field?.content ?? ' ');
-        }
-    }
-
-    if (mData.meta['image']) embed.setImage(await fixIUrl(mData.meta['image']));
-    if (mData.meta['icon']) embed.setThumbnail(await fixIUrl(mData.meta['icon']));
-    if (mData.meta['url']) embed.setURL(mData.meta['url']);
-    if (mData.meta['footer_text']) embed.footer.text = mData.meta['footer_text'];
-    if (mData.meta['footer_icon']) embed.footer.iconURL = await fixIUrl(mData.meta['footer_icon']);
-    if (mData.meta['color']) embed.setColor(parseInt(mData.meta['color'], 16));
-
-    if (mData.meta['discord']) {
-        content += `${mData.meta['discord']}`;
-    }
-
-    return {
-        mData,
-        content,
-        embed,
-    };
 }
 
 export class MapNewsPostPreview extends MapsterCommand {
@@ -132,28 +81,22 @@ export class MapNewsPostPreview extends MapsterCommand {
         if (channel.type !== 'text') return;
         const textChan = channel as TextChannel;
 
+        // if not ticket
+        if (textChan.parent.name !== 'Tickets') return;
+
+        // if not news ticket
+        const nameMatches = textChan.name.match(/^(\d+)-news-?(.*)$/u);
+        if (!nameMatches) return;
+
         for (let i = 0; i < 100; i++) {
             await sleep(100);
             const firstMsg = textChan.lastMessage;
             if (!firstMsg) continue;
-            if (!firstMsg.author.bot || !firstMsg.embeds.length) return;
+            if (!firstMsg.author.bot) return;
 
-            // if not ticket
-            if (textChan.parent.name !== 'Tickets') return;
+            const fullContent = [firstMsg.content].concat(firstMsg.embeds.map(x => x.description)).join('\n\n');
 
-            const botsRole = await textChan.guild.roles.fetch('373924172847382539');
-            if (botsRole) {
-                await textChan.updateOverwrite(botsRole, {
-                    MANAGE_CHANNELS: true,
-                    MANAGE_ROLES: true,
-                });
-            }
-
-            // if not news ticket
-            const nameMatches = textChan.name.match(/^(\d+)-news-?(.*)$/u);
-            if (!nameMatches) return;
-
-            const mentionedUserId = firstMsg.embeds[0].description.match(/^Welcome <@(\d+)>/)[1];
+            const mentionedUserId = fullContent.match(/<@(\d+)>/m)[1];
             const mentionedUser = (await textChan.guild.members.fetch(mentionedUserId)).user;
             await firstMsg.delete();
 
@@ -175,7 +118,7 @@ export class MapNewsPostPreview extends MapsterCommand {
             await textChan.send(this.client.settings.get('mn.template-msg', 'Provide content for your post.'));
             await this.setupChannelListenerForUser(textChan, mentionedUser);
 
-            await textChan.setName(`${nameMatches[1]}-news-${nameMatches[2] ?? ''}-${mentionedUser.username}`);
+            await textChan.setName(`${nameMatches[1]}-${mentionedUser.username}-news`);
 
             return;
         }
@@ -192,7 +135,7 @@ export class MapNewsPostPreview extends MapsterCommand {
 
         let botMsg: Message;
         try {
-            const minfo = await createNewsEmbed(msg.content, msg.member);
+            const minfo = await buildComplexMessage(msg.content, msg.member);
             botMsg = await msg.channel.send(minfo.content, minfo.embed) as Message;
         }
         catch (e) {
@@ -218,7 +161,7 @@ export class MapNewsPostPreview extends MapsterCommand {
         const draftMsg = this.draftMessages.get(newMsg.id);
         if (!draftMsg) return;
         try {
-            const minfo = await createNewsEmbed(newMsg.content, newMsg.member);
+            const minfo = await buildComplexMessage(newMsg.content, newMsg.member);
             draftMsg.botMsg = await draftMsg.botMsg.edit(minfo.content, minfo.embed);
         }
         catch (e) {
@@ -299,7 +242,7 @@ export class MapNewsPostCommand extends ModCommand {
         const targetChannel = args.targetChannel ? args.targetChannel : this.client.getChannel(msg.channel.id);
         const targetMessage = args.targetMessage ? await targetChannel.messages.fetch(args.targetMessage) : void 0;
 
-        const minfo = await createNewsEmbed(args.sourceMessage.content, author);
+        const minfo = await buildComplexMessage(args.sourceMessage.content, author);
         let finalMessage: Message;
         if (targetMessage) {
             finalMessage = await targetMessage.edit(`<@${author.id}> ` + minfo.content, minfo.embed);

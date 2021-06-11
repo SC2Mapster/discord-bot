@@ -15,10 +15,6 @@ export function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function urlOfMessage(msg: Message) {
-    return `https://discordapp.com/channels/${msg.guild.id}/${msg.channel.id}/${msg.id}`;
-}
-
 export function sanitizeForeignHtml(s: string) {
     s = sanitize(s, {
         allowedTags: [ 'b', 'i', 'em', 'strong', 'li', 'code', 'a' ],

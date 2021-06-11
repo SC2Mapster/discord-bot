@@ -1,9 +1,9 @@
-interface MdNamedEntry {
+export interface MdNamedEntry {
     title: string;
     content?: string;
 }
 
-interface MdPayload {
+export interface MdPayload {
     fields: MdNamedEntry[];
     meta: {[name: string]: string};
 }
@@ -19,7 +19,11 @@ export function parseMdPayload(input: string, strict = true) {
         fields: [],
         meta: {},
     };
-    let buff = input.replace(/^```(?:[\w]+\n)?((?:.*\n*)+)(?=```$)```$/, '$1').trimLeft();
+
+    let buff = input.trimLeft();
+    if (buff.startsWith('```\n') && buff.endsWith('\n```')) {
+        buff = buff.substring(4, buff.length - 4);
+    }
 
     let fmatches = buff.match(reFrontmatterBlock);
     if (!fmatches && !strict) {
