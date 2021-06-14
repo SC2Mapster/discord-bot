@@ -36,12 +36,16 @@ export async function buildComplexMessage(input: string, author?: GuildMember) {
     }
 
     if (mData.fields.length) {
-        embed.title = mData.fields[0].title;
-        embed.description = mData.fields[0]?.content ?? ' ';
+        let subFields = mData.fields;
 
-        mData.fields = mData.fields.slice(1);
-        for (const field of mData.fields) {
-            embed.addField(field.title, field?.content ?? ' ');
+        if (mData.fields[0].level <= 1) {
+            embed.title = mData.fields[0].title;
+            embed.description = mData.fields[0]?.content ?? null;
+            subFields = mData.fields.slice(1);
+        }
+
+        for (const field of subFields) {
+            embed.addField(field.title, field?.content ?? '\u200B');
         }
     }
 

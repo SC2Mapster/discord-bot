@@ -1,8 +1,10 @@
 import { Command, CommandoMessage } from 'discord.js-commando';
-import { Message, MessageEmbedOptions, TextChannel, MessageOptions as DiscordMessageOptions, GuildEmoji } from 'discord.js';
+import { Message, MessageEmbedOptions, TextChannel, MessageOptions as DiscordMessageOptions, GuildEmoji, MessageEmbed } from 'discord.js';
 import { MapsterBot, AdminCommand } from '../bot';
 import * as schedule from 'node-schedule';
 import { buildComplexMessage, urlOfMessage } from '../common';
+import { MdPayload } from '../util/richmd';
+import * as request from 'request-promise-native';
 
 export class AdminConfigGetCommand extends AdminCommand {
     constructor(client: MapsterBot) {
@@ -223,22 +225,48 @@ export class AdminMessageSendComplex extends AdminCommand {
     }
 
     public async run(msg: CommandoMessage, args: AdminMessageSendArgs) {
-        const targetMessage = args.targetMessageId ? await args.targetChannel.messages.fetch(args.targetMessageId) : void 0;
+        const msgDescs: {
+            mData: MdPayload;
+            content: string;
+            embed: MessageEmbed;
+        }[] = [];
+        if (args.sourceMessage.attachments.size > 0) {
+            for (const attachment of args.sourceMessage.attachments.values()) {
+                if (!attachment.name.match(/\.(md|txt)$/)) continue;
+                if (typeof attachment.attachment !== 'string') continue;
+                const allContent = await request.get(attachment.attachment) as string;
+                for (const singleContent of allContent.split(/\n===\n\s*/)) {
+                    msgDescs.push(await buildComplexMessage(singleContent));
+                }
+                break;
+            }
+        }
+        if (!msgDescs) {
+            msgDescs.push(await buildComplexMessage(args.sourceMessage.content));
+        }
 
-        const minfo = await buildComplexMessage(args.sourceMessage.content);
-        const fMsgOpts: DiscordMessageOptions = {
-            content: minfo.content,
-            embed: minfo.embed,
-            split: false,
-        };
-        let finalMessage: Message;
-        if (targetMessage) {
-            finalMessage = await targetMessage.edit(fMsgOpts);
+        const finalMessages: Message[] = [];
+
+        for (const currMsgDesc of msgDescs) {
+            const fMsgOpts: DiscordMessageOptions = {
+                content: currMsgDesc.content,
+                embed: currMsgDesc.embed,
+                split: false,
+            };
+            let targetMessageId = args.targetMessageId;
+            if (currMsgDesc.mData.meta['message_id']) {
+                targetMessageId = currMsgDesc.mData.meta['message_id'];
+            }
+            const targetMessage = targetMessageId ? await args.targetChannel.messages.fetch(targetMessageId) : void 0;
+            if (targetMessage) {
+                finalMessages.push(await targetMessage.edit(fMsgOpts));
+            }
+            else {
+                finalMessages.push(await args.targetChannel.send(fMsgOpts) as Message);
+            }
         }
-        else {
-            finalMessage = await args.targetChannel.send(fMsgOpts) as Message;
-        }
-        return msg.reply(`Done. ${urlOfMessage(finalMessage)}`);
+        return [] as Message[];
+        // return msg.reply(`Done. ${urlOfMessage(finalMessages)}`);
     }
 }
 

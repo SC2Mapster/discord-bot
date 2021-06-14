@@ -1,7 +1,7 @@
 import 'mocha';
 import { assert } from 'chai';
 import { parseMdPayload } from '../src/util/richmd';
-import { stripIndent } from 'common-tags';
+import { stripIndent, stripIndents } from 'common-tags';
 
 describe('richmd', () => {
     it('t1', async () => {
@@ -61,7 +61,40 @@ a
             asd
         `, false);
 
-        // console.log(r);
+        assert.deepEqual(r, {
+            fields: [
+                { title: '', level: 0, content: 'asd' },
+            ],
+            meta: {
+                image: 'https://i.imgur.com/rETvesg.jpg',
+                icon: 'https://i.imgur.com/rETvesg.jpg',
+                discord: 'https://discord.gg/asdfgh',
+            }
+        })
+    });
+
+    it('sections', async () => {
+        let r = parseMdPayload(stripIndents
+        `
+            # title
+
+            ## section 1
+
+            section content 1
+
+            ## section 2
+
+            section content 2
+        `, false);
+
+        assert.deepEqual(r, {
+            fields: [
+                { title: 'title', level: 1 },
+                { title: 'section 1', level: 2, content: 'section content 1' },
+                { title: 'section 2', level: 2, content: 'section content 2' },
+            ],
+            meta: {},
+        })
     });
 });
 

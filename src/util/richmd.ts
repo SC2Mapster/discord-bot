@@ -1,5 +1,6 @@
 export interface MdNamedEntry {
     title: string;
+    level: number;
     content?: string;
 }
 
@@ -50,6 +51,7 @@ export function parseMdPayload(input: string, strict = true) {
     if (matches) {
         mContent.fields.push({
             title: '',
+            level: 0,
             content: matches[1].trimRight(),
         });
         buff = buff.substr(matches[1].length);
@@ -58,9 +60,10 @@ export function parseMdPayload(input: string, strict = true) {
     while (matches = buff.match(reEntryHead)) {
         const entry: MdNamedEntry = {
             title: matches[2],
+            level: matches[1].length,
         };
         mContent.fields.push(entry);
-        buff = buff.substr(matches[0].length);
+        buff = buff.substr(matches[0].length).trimLeft();
 
         matches = buff.match(reEntryContent);
         if (!matches) continue;
