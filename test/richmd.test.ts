@@ -6,7 +6,7 @@ import { stripIndent, stripIndents } from 'common-tags';
 describe('richmd', () => {
     it('t1', async () => {
         let r = parseMdPayload(`
-📥📥
+---
 >>> THIS SECTION WON'T BE DISPLAYED DIRECTLY
 >>> THINK OF IT AS A SET OF EXTRA
 >>> REPLACE THE VALUES ON THE RIGHT SIDE APPROPRIATELY
@@ -15,7 +15,7 @@ IMAGE = https://i.imgur.com/WJ9pDRC.jpg
 ICON = https://i.imgur.com/rETvesg.jpg
 DISCORD = https://discord.gg/fpY4exB
 URL=
-📤📤
+---
 
 # Star Party 2.0!
 

@@ -18,24 +18,14 @@ export async function fixIUrl(s: string) {
     return s;
 }
 
-export async function buildComplexMessage(input: string, author?: GuildMember) {
-    const mData = parseMdPayload(input, false);
+export async function buildComplexMessage(input: string, author?: GuildMember, strictParse = false) {
+    const mData = parseMdPayload(input, strictParse);
 
-    const embed = new MessageEmbed({
-        footer: {},
-    });
-    let content = '';
-
-    if (author) {
-        embed.setAuthor(author.displayName, author.user.defaultAvatarURL);
-    }
-    else if (mData.meta && mData.meta['author_name']) {
-        embed.setAuthor(mData.meta['author_name']);
-        if (mData.meta['author_icon']) embed.author.iconURL = await fixIUrl(mData.meta['author_icon']);
-        if (mData.meta['author_url']) embed.author.url = mData.meta['author_url'];
-    }
+    let embed: MessageEmbed | undefined = undefined;
+    const content: string[] = [];
 
     if (mData.fields.length) {
+        embed = new MessageEmbed();
         let subFields = mData.fields;
 
         if (mData.fields[0].level <= 1) {
@@ -49,20 +39,36 @@ export async function buildComplexMessage(input: string, author?: GuildMember) {
         }
     }
 
-    if (mData.meta['image']) embed.setImage(await fixIUrl(mData.meta['image']));
-    if (mData.meta['icon']) embed.setThumbnail(await fixIUrl(mData.meta['icon']));
-    if (mData.meta['url']) embed.setURL(mData.meta['url']);
-    if (mData.meta['footer_text']) embed.footer.text = mData.meta['footer_text'];
-    if (mData.meta['footer_icon']) embed.footer.iconURL = await fixIUrl(mData.meta['footer_icon']);
-    if (mData.meta['color']) embed.setColor(parseInt(mData.meta['color'], 16));
+    if (embed) {
+        if (author) {
+            embed.setAuthor(author.displayName, author.user.defaultAvatarURL);
+        }
+        else if (mData.meta && mData.meta['author_name']) {
+            embed.setAuthor(mData.meta['author_name']);
+            if (mData.meta['author_icon']) embed.author.iconURL = await fixIUrl(mData.meta['author_icon']);
+            if (mData.meta['author_url']) embed.author.url = mData.meta['author_url'];
+        }
+
+        if (mData.meta['image']) embed.setImage(await fixIUrl(mData.meta['image']));
+        if (mData.meta['icon']) embed.setThumbnail(await fixIUrl(mData.meta['icon']));
+        if (mData.meta['url']) embed.setURL(mData.meta['url']);
+        if (mData.meta['footer_text']) {
+            embed.setFooter(mData.meta['footer_text'], mData.meta['footer_icon'] ? await fixIUrl(mData.meta['footer_icon']) : void 0);
+        }
+        if (mData.meta['color']) embed.setColor(parseInt(mData.meta['color'], 16));
+    }
+
+    if (mData.meta['content']) {
+        content.push(`${mData.meta['content']}`);
+    }
 
     if (mData.meta['discord']) {
-        content += `${mData.meta['discord']}`;
+        content.push(`${mData.meta['discord']}`);
     }
 
     return {
         mData,
-        content,
+        content: content.join('\n'),
         embed,
     };
 }

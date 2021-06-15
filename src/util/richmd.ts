@@ -4,16 +4,37 @@ export interface MdNamedEntry {
     content?: string;
 }
 
+export type MdFrontmatter = {[name: string]: string};
+
 export interface MdPayload {
     fields: MdNamedEntry[];
     meta: {[name: string]: string};
 }
 
-const reFrontmatterBlock = /^(?:---|```|📥📥)\n((?:(?!-).+\n)*)(?:---|```|📤📤)/;
-const reFrontmatterBlockNoOpening = /^((?:(?!-).+\n)*)(?:---|```|📤📤)/;
-const reFrontmatterValue = /^([\w\d]+)\s*=\s*(.+)$/;
+const reFrontmatterBlock = /^(?:---|```)\n((?:(?!-).+\n)*)(?:---|```)/;
+const reFrontmatterBlockNoOpening = /^((?:(?!-).+\n)*)(?:---|```)/;
+const reFrontmatterValue = /^([\w\d]+)\s*(?:=|:)\s*(.+)$/;
 const reEntryHead = /(?:^|\n+)(#+) ([^\n]+)(?:\n|$)/;
 const reEntryContent = /^\n?((?!#)[^]+?)(?:\n#+ |$)/;
+
+export function parseFrontmatter(content: string) {
+    const meta: MdFrontmatter = {};
+
+    const fmatches = content.match(reFrontmatterBlock);
+    if (fmatches) {
+        for (const fline of fmatches[1].split('\n')) {
+            const fbm = fline.match(reFrontmatterValue);
+            if (!fbm) continue;
+            meta[fbm[1].toLowerCase()] = fbm[2];
+        }
+        content = content.substr(fmatches[0].length).trimLeft();
+    }
+
+    return {
+        content,
+        meta,
+    };
+}
 
 export function parseMdPayload(input: string, strict = true) {
     const mContent: MdPayload = {

@@ -265,7 +265,7 @@ export abstract class MapsterCommand extends Command {
         super(client, info);
         this.minfo = Object.assign(<MapsterCommandInfo>{
             deleteOnUserCommandDelete: false,
-        }, info)
+        }, info);
     }
 }
 

@@ -1,9 +1,9 @@
 import { Command, CommandoMessage } from 'discord.js-commando';
-import { Message, MessageEmbedOptions, TextChannel, MessageOptions as DiscordMessageOptions, GuildEmoji, MessageEmbed, GuildMember, Role } from 'discord.js';
+import { Message, MessageEmbedOptions, TextChannel, MessageOptions as DiscordMessageOptions, GuildEmoji, MessageEmbed, GuildMember, Role, DMChannel, NewsChannel, GuildChannel } from 'discord.js';
 import { MapsterBot, AdminCommand, RootOwnerCommand } from '../bot';
 import * as schedule from 'node-schedule';
 import { buildComplexMessage, urlOfMessage } from '../common';
-import { MdPayload } from '../util/richmd';
+import { MdPayload, MdFrontmatter, parseFrontmatter } from '../util/richmd';
 import * as request from 'request-promise-native';
 
 export class AdminConfigGetCommand extends AdminCommand {
@@ -191,8 +191,8 @@ export class AdminSchedulerInvokeCommand extends AdminCommand {
 }
 
 interface AdminMessageSendArgs {
-    sourceMessage: Message;
-    targetChannel: TextChannel;
+    targetChannel: DMChannel | TextChannel | NewsChannel;
+    sourceMessage: Message | string;
 }
 
 export class AdminMessageSendComplex extends AdminCommand {
@@ -202,46 +202,124 @@ export class AdminMessageSendComplex extends AdminCommand {
             group: 'admin',
             memberName: 'a.msg.sendc',
             description: 'Send complex message. (Or optionally edit).',
+            argsPromptLimit: 0,
             args: [
-                {
-                    key: 'sourceMessage',
-                    type: 'message',
-                    prompt: 'Provide source message ID (must be in the same channel the command is issued in)',
-                },
                 {
                     key: 'targetChannel',
                     type: 'text-channel',
                     prompt: 'Provide target channel',
                 },
+                {
+                    key: 'sourceMessage',
+                    type: 'message',
+                    prompt: 'Provide source message ID (must be in the same channel the command is issued in)',
+                    default: '',
+                },
             ],
+        });
+
+        this.client.on('message', async (msg) => {
+            if (msg.attachments.size <= 0) return;
+            if (!this.hasPermission(msg as CommandoMessage)) return;
+
+            for (const attachment of msg.attachments.values()) {
+                const m = attachment.name.match(/^(?:botmsg(?:-[^\.]+)?\.([\w\d]+)).md$/)
+                if (!m) continue;
+                let targetChannel: DMChannel | TextChannel | NewsChannel;
+                if (m[1].match(/^\d{16,}$/)) {
+                    const tmp = this.client.channels.cache.get(m[1]);
+                    if (!tmp.isText()) continue;
+                    targetChannel = tmp;
+                }
+                else {
+                    if (!(msg.channel instanceof GuildChannel)) return;
+                    targetChannel = msg.channel.guild.channels.cache.find(x => {
+                        if (!x.isText()) return false;
+                        return x.name === m[1];
+                    }) as typeof targetChannel;
+                }
+
+                if (!targetChannel) {
+                    msg.reply(`target channel \`${m[1]}\` not found`);
+                }
+                else {
+                    await this.run(msg as CommandoMessage, { targetChannel: targetChannel, sourceMessage: '' }, true);
+                }
+            }
         });
     }
 
-    public async run(msg: CommandoMessage, args: AdminMessageSendArgs) {
-        const workingReaction = await msg.react('⏳');
+    public async run(msg: CommandoMessage, args: AdminMessageSendArgs, fromPattern: boolean) {
+        const workingReaction = msg.react('⏳');
 
         try {
+            let frontmatter: MdFrontmatter;
             const msgDescs: {
                 mData: MdPayload;
                 content: string;
                 embed: MessageEmbed;
             }[] = [];
-            if (args.sourceMessage.attachments.size > 0) {
-                for (const attachment of args.sourceMessage.attachments.values()) {
-                    if (!attachment.name.match(/\.(md|txt)$/)) continue;
-                    if (typeof attachment.attachment !== 'string') continue;
-                    const allContent = await request.get(attachment.attachment) as string;
-                    for (const singleContent of allContent.split(/\n===\n\s*/)) {
-                        msgDescs.push(await buildComplexMessage(singleContent));
+            for (const attachment of (typeof args.sourceMessage !== 'string' ? args.sourceMessage : msg).attachments.values()) {
+                if (!attachment.name.match(/\.(md|txt)$/)) continue;
+                if (typeof attachment.attachment !== 'string') continue;
+                const allContent = await request.get(attachment.attachment) as string;
+                const tmp = parseFrontmatter(allContent);
+                frontmatter = tmp.meta;
+                if (tmp.meta['multiple']) {
+                    for (const singleContent of tmp.content.split(/\n===\n\s*/)) {
+                        msgDescs.push(await buildComplexMessage(singleContent, void 0, true));
                     }
-                    break;
+                }
+                else {
+                    msgDescs.push(await buildComplexMessage(tmp.content, void 0, true));
+                }
+                break;
+            }
+            if (!msgDescs.length) {
+                if (typeof args.sourceMessage !== 'string') {
+                    msgDescs.push(await buildComplexMessage(args.sourceMessage.content, void 0, true));
+                }
+                else {
+                    return msg.reply('invalid args');
                 }
             }
-            if (!msgDescs) {
-                msgDescs.push(await buildComplexMessage(args.sourceMessage.content));
+
+            const strictOrder = Boolean(Number(frontmatter['strict_order']));
+            if (strictOrder) {
+                const existingMessages = (await args.targetChannel.messages.fetch({ after: args.targetChannel.id, limit: msgDescs.length + 1 }))
+                    .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+                    .array()
+                ;
+                if (existingMessages.length > msgDescs.length) {
+                    return msg.reply(`there's more messages posted in the channel than provided in the payload - cannot proceed due to strict ordering`);
+                }
+                for (const [i, currMsgDesc] of msgDescs.entries()) {
+                    if (currMsgDesc.mData.meta['message_id']) {
+                        return msg.reply('encountered explicit `message_id` - not expected when strict ordering is enabled');
+                    }
+                    if (existingMessages.length <= i) continue;
+                    const currMsg = existingMessages[i];
+                    if (!currMsg.editable) {
+                        return msg.reply(`message ${urlOfMessage(currMsg)} is not editable`);
+                    }
+                    currMsgDesc.mData.meta['message_id'] = currMsg.id;
+                }
             }
 
-            const finalMessages: Message[] = [];
+            const finalMessages: Promise<Message>[] = [];
+            let hasEdits = false;
+            let hasPublishes = false;
+            for (const currMsgDesc of msgDescs) {
+                if (currMsgDesc.mData.meta['message_id']) {
+                    if (hasPublishes) {
+                        return msg.reply('order of messages impossible to maintain without deleting/overwriting exing ones');
+                    }
+                    hasEdits = true;
+                }
+                else {
+                    hasPublishes = true;
+                }
+            }
 
             for (const currMsgDesc of msgDescs) {
                 const fMsgOpts: DiscordMessageOptions = {
@@ -249,19 +327,44 @@ export class AdminMessageSendComplex extends AdminCommand {
                     embed: currMsgDesc.embed,
                     split: false,
                 };
-                const targetMessage = currMsgDesc.mData.meta['message_id'] ? await args.targetChannel.messages.fetch(currMsgDesc.mData.meta['message_id']) : void 0;
-                if (targetMessage) {
-                    finalMessages.push(await targetMessage.edit(fMsgOpts));
+                if (currMsgDesc.mData.meta['message_id']) {
+                    let targetMessage = args.targetChannel.messages.cache.get(currMsgDesc.mData.meta['message_id']);
+                    if (targetMessage) {
+                        if (
+                            (targetMessage.content === fMsgOpts.content) &&
+                            (
+                                (
+                                    currMsgDesc.embed &&
+                                    targetMessage.embeds.length === 1 &&
+                                    JSON.stringify(targetMessage.embeds[0].toJSON()) === JSON.stringify(currMsgDesc.embed.toJSON())
+                                ) ||
+                                (!currMsgDesc.embed && targetMessage.embeds.length === 0)
+                            )
+                        ) {
+                            continue;
+                        }
+                    }
+                    else {
+                        targetMessage = (new Message(this.client, {
+                            id: String(currMsgDesc.mData.meta['message_id']),
+                        }, args.targetChannel));
+                    }
+                    finalMessages.push(targetMessage.edit(fMsgOpts));
                 }
                 else {
-                    finalMessages.push(await args.targetChannel.send(fMsgOpts) as Message);
+                    const tmp = (await args.targetChannel.send(fMsgOpts)) as Message;
+                    finalMessages.push((async () => tmp)());
                 }
             }
+            if (hasEdits && !hasPublishes) {
+                await Promise.all(finalMessages);
+            }
+            await msg.react('✅');
             return [] as Message[];
             // return msg.reply(`Done. ${urlOfMessage(finalMessages)}`);
         }
         finally {
-            await workingReaction.remove();
+            await (await workingReaction).remove();
         }
     }
 }

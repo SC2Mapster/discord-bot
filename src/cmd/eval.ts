@@ -38,6 +38,10 @@ export class EvalCommand extends RootOwnerCommand {
             let hrDiff: [number, number];
             let evalResult: any;
             try {
+                // helpers
+                const client = msg.client;
+                const message = msg;
+                // helpers
                 const hrStart = process.hrtime();
                 evalResult = eval(args.script);
                 if (util.types.isPromise(evalResult)) {
