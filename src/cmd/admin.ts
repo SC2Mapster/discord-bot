@@ -1,6 +1,6 @@
 import { Command, CommandoMessage } from 'discord.js-commando';
-import { Message, MessageEmbedOptions, TextChannel, MessageOptions as DiscordMessageOptions, GuildEmoji, MessageEmbed } from 'discord.js';
-import { MapsterBot, AdminCommand } from '../bot';
+import { Message, MessageEmbedOptions, TextChannel, MessageOptions as DiscordMessageOptions, GuildEmoji, MessageEmbed, GuildMember, Role } from 'discord.js';
+import { MapsterBot, AdminCommand, RootOwnerCommand } from '../bot';
 import * as schedule from 'node-schedule';
 import { buildComplexMessage, urlOfMessage } from '../common';
 import { MdPayload } from '../util/richmd';
@@ -193,7 +193,6 @@ export class AdminSchedulerInvokeCommand extends AdminCommand {
 interface AdminMessageSendArgs {
     sourceMessage: Message;
     targetChannel: TextChannel;
-    targetMessageId?: string;
 }
 
 export class AdminMessageSendComplex extends AdminCommand {
@@ -202,7 +201,7 @@ export class AdminMessageSendComplex extends AdminCommand {
             name: 'a.msg.sendc',
             group: 'admin',
             memberName: 'a.msg.sendc',
-            description: 'Send complex message. (Or optionally edit if targetMessageId is provided)',
+            description: 'Send complex message. (Or optionally edit).',
             args: [
                 {
                     key: 'sourceMessage',
@@ -214,59 +213,56 @@ export class AdminMessageSendComplex extends AdminCommand {
                     type: 'text-channel',
                     prompt: 'Provide target channel',
                 },
-                {
-                    key: 'targetMessageId',
-                    type: 'string',
-                    prompt: 'Provide target message ID',
-                    default: '',
-                },
             ],
         });
     }
 
     public async run(msg: CommandoMessage, args: AdminMessageSendArgs) {
-        const msgDescs: {
-            mData: MdPayload;
-            content: string;
-            embed: MessageEmbed;
-        }[] = [];
-        if (args.sourceMessage.attachments.size > 0) {
-            for (const attachment of args.sourceMessage.attachments.values()) {
-                if (!attachment.name.match(/\.(md|txt)$/)) continue;
-                if (typeof attachment.attachment !== 'string') continue;
-                const allContent = await request.get(attachment.attachment) as string;
-                for (const singleContent of allContent.split(/\n===\n\s*/)) {
-                    msgDescs.push(await buildComplexMessage(singleContent));
+        const workingReaction = await msg.react('⏳');
+
+        try {
+            const msgDescs: {
+                mData: MdPayload;
+                content: string;
+                embed: MessageEmbed;
+            }[] = [];
+            if (args.sourceMessage.attachments.size > 0) {
+                for (const attachment of args.sourceMessage.attachments.values()) {
+                    if (!attachment.name.match(/\.(md|txt)$/)) continue;
+                    if (typeof attachment.attachment !== 'string') continue;
+                    const allContent = await request.get(attachment.attachment) as string;
+                    for (const singleContent of allContent.split(/\n===\n\s*/)) {
+                        msgDescs.push(await buildComplexMessage(singleContent));
+                    }
+                    break;
                 }
-                break;
             }
-        }
-        if (!msgDescs) {
-            msgDescs.push(await buildComplexMessage(args.sourceMessage.content));
-        }
+            if (!msgDescs) {
+                msgDescs.push(await buildComplexMessage(args.sourceMessage.content));
+            }
 
-        const finalMessages: Message[] = [];
+            const finalMessages: Message[] = [];
 
-        for (const currMsgDesc of msgDescs) {
-            const fMsgOpts: DiscordMessageOptions = {
-                content: currMsgDesc.content,
-                embed: currMsgDesc.embed,
-                split: false,
-            };
-            let targetMessageId = args.targetMessageId;
-            if (currMsgDesc.mData.meta['message_id']) {
-                targetMessageId = currMsgDesc.mData.meta['message_id'];
+            for (const currMsgDesc of msgDescs) {
+                const fMsgOpts: DiscordMessageOptions = {
+                    content: currMsgDesc.content,
+                    embed: currMsgDesc.embed,
+                    split: false,
+                };
+                const targetMessage = currMsgDesc.mData.meta['message_id'] ? await args.targetChannel.messages.fetch(currMsgDesc.mData.meta['message_id']) : void 0;
+                if (targetMessage) {
+                    finalMessages.push(await targetMessage.edit(fMsgOpts));
+                }
+                else {
+                    finalMessages.push(await args.targetChannel.send(fMsgOpts) as Message);
+                }
             }
-            const targetMessage = targetMessageId ? await args.targetChannel.messages.fetch(targetMessageId) : void 0;
-            if (targetMessage) {
-                finalMessages.push(await targetMessage.edit(fMsgOpts));
-            }
-            else {
-                finalMessages.push(await args.targetChannel.send(fMsgOpts) as Message);
-            }
+            return [] as Message[];
+            // return msg.reply(`Done. ${urlOfMessage(finalMessages)}`);
         }
-        return [] as Message[];
-        // return msg.reply(`Done. ${urlOfMessage(finalMessages)}`);
+        finally {
+            await workingReaction.remove();
+        }
     }
 }
 
@@ -322,3 +318,49 @@ export class AdminMessageReaction extends AdminCommand {
         }
     }
 }
+
+interface AdminRoleGiveTakeArgs {
+    member: GuildMember;
+    role: Role;
+    give: boolean;
+}
+
+export class AdminRoleGiveTake extends RootOwnerCommand {
+    constructor(client: MapsterBot) {
+        super(client, {
+            name: 'a.role',
+            group: 'admin',
+            memberName: 'a.role',
+            description: '',
+            args: [
+                {
+                    key: 'member',
+                    type: 'member',
+                    prompt: 'Provide member',
+                },
+                {
+                    key: 'role',
+                    type: 'role',
+                    prompt: 'Provide role',
+                },
+                {
+                    key: 'give',
+                    type: 'boolean',
+                    prompt: 'Choose: Give = `yes` | Take away = `no`',
+                },
+            ],
+        });
+    }
+
+    public async run(msg: CommandoMessage, args: AdminRoleGiveTakeArgs) {
+        if (!(msg.channel instanceof TextChannel)) return;
+        if (args.give) {
+            await args.member.roles.add(args.role);
+        }
+        else {
+            await args.member.roles.remove(args.role);
+        }
+        return msg.reply('done');
+    }
+}
+

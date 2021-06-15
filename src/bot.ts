@@ -164,8 +164,6 @@ export class MapsterBot extends CommandoClient {
             unknownCommand: false,
         });
 
-        if (process.env.ENV !== 'dev') {
-        }
         this.registry.registerCommandsIn({
             dirname: path.join(__dirname, 'cmd'),
             filter: /.+\.js$/,
@@ -271,16 +269,23 @@ export abstract class MapsterCommand extends Command {
     }
 }
 
+export abstract class RootOwnerCommand extends MapsterCommand {
+    public hasPermission(userMsg: CommandoMessage) {
+        return this.client.isOwner(userMsg.author);
+    }
+}
+
 export abstract class AdminCommand extends MapsterCommand {
     public hasPermission(userMsg: CommandoMessage) {
         const adminIds = (<string>this.client.settings.get('admin.users-list', '')).split(',');
         return (
             this.client.isOwner(userMsg.author) ||
             adminIds.indexOf(userMsg.author.id) !== -1 ||
-            (userMsg.channel.type === 'text' && userMsg.member.permissions.has('MANAGE_GUILD'))
+            (userMsg.channel.type === 'text' && userMsg.member.permissions.has('ADMINISTRATOR'))
         );
     }
 }
+
 export abstract class ModCommand extends AdminCommand {
     public hasPermission(userMsg: CommandoMessage) {
         return (
