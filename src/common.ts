@@ -5,7 +5,7 @@ import { imgurAlbumDirectLink } from './util/imgurExtra';
 import { parseMdPayload } from './util/richmd';
 
 export function urlOfMessage(msg: Message) {
-    return `https://discordapp.com/channels/${msg.guild.id}/${msg.channel.id}/${msg.id}`;
+    return `https://discord.com/channels/${msg.guild.id}/${msg.channel.id}/${msg.id}`;
 }
 
 export async function fixIUrl(s: string) {
@@ -41,7 +41,7 @@ export async function buildComplexMessage(input: string, author?: GuildMember, s
 
     if (embed) {
         if (author) {
-            embed.setAuthor(author.displayName, author.user.defaultAvatarURL);
+            embed.setAuthor(author.displayName, author.user.displayAvatarURL());
         }
         else if (mData.meta && mData.meta['author_name']) {
             embed.setAuthor(mData.meta['author_name']);

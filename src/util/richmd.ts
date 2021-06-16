@@ -13,7 +13,7 @@ export interface MdPayload {
 
 const reFrontmatterBlock = /^(?:---|```)\n((?:(?!-).+\n)*)(?:---|```)/;
 const reFrontmatterBlockNoOpening = /^((?:(?!-).+\n)*)(?:---|```)/;
-const reFrontmatterValue = /^([\w\d]+)\s*(?:=|:)\s*(.+)$/;
+const reFrontmatterValue = /^([\w\d]+)\s*(?:=|:)\s*(.*)$/;
 const reEntryHead = /(?:^|\n+)(#+) ([^\n]+)(?:\n|$)/;
 const reEntryContent = /^\n?((?!#)[^]+?)(?:\n#+ |$)/;
 

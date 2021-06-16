@@ -223,7 +223,7 @@ export class AdminMessageSendComplex extends AdminCommand {
             if (!this.hasPermission(msg as CommandoMessage)) return;
 
             for (const attachment of msg.attachments.values()) {
-                const m = attachment.name.match(/^(?:botmsg(?:-[^\.]+)?\.([\w\d]+)).md$/)
+                const m = attachment.name.match(/^(?:botmsg(?:-[^\.\-]+)?\.([\w\d\-]+)).md$/)
                 if (!m) continue;
                 let targetChannel: DMChannel | TextChannel | NewsChannel;
                 if (m[1].match(/^\d{16,}$/)) {
@@ -341,6 +341,7 @@ export class AdminMessageSendComplex extends AdminCommand {
                                 (!currMsgDesc.embed && targetMessage.embeds.length === 0)
                             )
                         ) {
+                            finalMessages.push((async () => targetMessage)());
                             continue;
                         }
                     }
@@ -356,12 +357,36 @@ export class AdminMessageSendComplex extends AdminCommand {
                     finalMessages.push((async () => tmp)());
                 }
             }
-            if (hasEdits && !hasPublishes) {
-                await Promise.all(finalMessages);
+
+            for (const [i, cMsg] of (await Promise.all(finalMessages)).entries()) {
+                if (typeof msgDescs[i].mData.meta['reactions'] === 'undefined') continue;
+                // await Promise.all(cMsg.reactions.cache.filter(x => !x.me).map(x => x.remove()));
+
+                const wantedReactions = new Set(
+                    msgDescs[i].mData.meta['reactions'].split(' ').filter(x => x.length).map(x => {
+                        if (x.startsWith('%')) {
+                            return unescape(x);
+                        }
+                        return x;
+                    })
+                );
+                const myReactions = cMsg.reactions.cache.array().filter(x => x.me);
+                for (const currMyReaction of myReactions) {
+                    if (!wantedReactions.has(currMyReaction.emoji.name) && !wantedReactions.has(currMyReaction.emoji.id)) {
+                        await currMyReaction.users.remove(this.client.user.id);
+                    }
+                    else {
+                        wantedReactions.delete(currMyReaction.emoji.name);
+                        wantedReactions.delete(currMyReaction.emoji.id);
+                    }
+                }
+                if (wantedReactions.size > 0) {
+                    await Promise.all(Array.from(wantedReactions).map(x => cMsg.react(x)))
+                }
             }
+
             await msg.react('✅');
             return [] as Message[];
-            // return msg.reply(`Done. ${urlOfMessage(finalMessages)}`);
         }
         finally {
             await (await workingReaction).remove();
