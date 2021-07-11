@@ -11,6 +11,7 @@ export interface MdPayload {
     meta: {[name: string]: string};
 }
 
+const reFrontmatterBlockStrict = /^(?:---)\n((?:(?!-).+\n)*)(?:---)/;
 const reFrontmatterBlock = /^(?:---|```)\n((?:(?!-).+\n)*)(?:---|```)/;
 const reFrontmatterBlockNoOpening = /^((?:(?!-).+\n)*)(?:---|```)/;
 const reFrontmatterValue = /^([\w\d]+)\s*(?:=|:)\s*(.*)$/;
@@ -20,7 +21,7 @@ const reEntryContent = /^\n?((?!#)[^]+?)(?:\n#+ |$)/;
 export function parseFrontmatter(content: string) {
     const meta: MdFrontmatter = {};
 
-    const fmatches = content.match(reFrontmatterBlock);
+    const fmatches = content.match(reFrontmatterBlockStrict);
     if (fmatches) {
         for (const fline of fmatches[1].split('\n')) {
             const fbm = fline.match(reFrontmatterValue);

@@ -61,19 +61,43 @@ export class MapNewsPostPreview extends MapsterCommand {
     }
 
     protected async reminder() {
-        for (const guild of this.client.guilds.cache.values()) {
-            for (const chan of guild.channels.cache.values()) {
-                if (!chan.parent) continue;
-                if (chan.parent.name !== 'Tickets') continue;
-                if (chan.type !== 'text') continue;
-                if (!chan.name.match(/^(\d+)-news-?(.*)$/u)) continue;
-                const textChan = chan as TextChannel;
-                const lastMsg = await textChan.messages.fetch(textChan.lastMessageID);
-                const diff = Date.now() - lastMsg.createdTimestamp
-                if (diff / 1000 / (3600 * 24) >= 5) {
-                    await textChan.send('Detected lack of activity. If conditions won\'t change, this ticket will be automatically closed after 48h.');
-                }
+        for (const chan of this.client.channels.cache.values()) {
+            if (!(chan instanceof TextChannel)) continue;
+            if (!chan.parent || chan.parent.name !== 'Tickets') continue;
+            if (!chan.name.match(/^(\d+)-?(.*)-news$/u)) continue;
+
+            let lastMsg: Message;
+
+            // fetch last message
+            // lastMessageID prop on a channel might get deleted, so we fetch something around it and work from there
+            const aroundMsg = (await chan.messages.fetch({ around: chan.lastMessageID, limit: 1 })).first();
+            if (aroundMsg.id === chan.lastMessageID) {
+                lastMsg = aroundMsg;
             }
+            else {
+                const afterMsgs = (await chan.messages.fetch({ after: aroundMsg.id, limit: 100 })).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+                lastMsg = afterMsgs.size > 0 ? afterMsgs.last() : aroundMsg
+            }
+
+            if (!lastMsg) {
+                logger.warn(`wtf, couldn't obtain lastMsg - empty channel??`);
+                continue;
+            }
+
+            // check timestamp of most recent msg - 5d
+            const diff = Date.now() - lastMsg.createdTimestamp;
+            if (diff / (1000 * 3600 * 24) < 5) continue;
+
+            // fetch first msg
+            const beforeMsgs = (await chan.messages.fetch({ before: aroundMsg.id, limit: 100 })).sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+            const firstMsg = beforeMsgs.first();
+            if (firstMsg.author.id !== this.client.user.id) continue;
+            const ticketer = firstMsg.mentions.users.first();
+
+            // send reminder
+            await chan.send({
+                content: `<@${ticketer.id}> Detected lack of activity. If conditions won't change, this ticket will be automatically closed after 72h.`,
+            });
         }
     }
 
@@ -252,7 +276,7 @@ export class MapNewsPostCommand extends ModCommand {
             finalMessage = await targetChannel.send(`<@${author.id}> ` + minfo.content, minfo.embed) as Message;
             await finalMessage.react('⭐');
             await msg.channel.send(
-                `<@${author.id}> Your post has been approved. You may now close the ticket by using command \`!ticket close\`.`,
+                `<@${author.id}> Your post has been approved. You may now close the ticket by using command \`/tickets close\`.`,
             );
         }
 

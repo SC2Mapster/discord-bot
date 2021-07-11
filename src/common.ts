@@ -25,7 +25,9 @@ export async function buildComplexMessage(input: string, author?: GuildMember, s
     const content: string[] = [];
 
     if (mData.fields.length) {
-        embed = new MessageEmbed();
+        embed = new MessageEmbed({
+            color: 0x36393f,
+        });
         let subFields = mData.fields;
 
         if (mData.fields[0].level <= 1) {
@@ -41,7 +43,7 @@ export async function buildComplexMessage(input: string, author?: GuildMember, s
 
     if (embed) {
         if (author) {
-            embed.setAuthor(author.displayName, author.user.displayAvatarURL());
+            embed.setAuthor(author.displayName, author.user.displayAvatarURL({ size: 128 }));
         }
         else if (mData.meta && mData.meta['author_name']) {
             embed.setAuthor(mData.meta['author_name']);
