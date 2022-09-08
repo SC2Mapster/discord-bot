@@ -1,0 +1,53 @@
+# x-logging: &default-logging
+#   options:
+#     max-size: '12m'
+#     max-file: '5'
+#   driver: json-file
+
+x-app-env: &app-env
+  APP_ENV: ${APP_ENV:??}
+  APP_PUPPETEER_DATA_DIR: ${APP_PUPPETEER_DATA_DIR:??}
+  APP_ARCHIVE_NEWER_THAN_DAYS: ${APP_ARCHIVE_NEWER_THAN_DAYS-}
+  BOT_TOKEN: ${BOT_TOKEN:??}
+  BOT_OWNER: ${BOT_OWNER:??}
+  ARCHIVE_IGNORE_CHANNELS: ${ARCHIVE_IGNORE_CHANNELS:??}
+  GITHUB_TOKEN: ${GITHUB_TOKEN:??}
+  CAPTCHA2_TOKEN: ${CAPTCHA2_TOKEN:??}
+
+services:
+  db:
+    image: mariadb:10.8.3
+    command:
+      - mariadbd
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_unicode_ci"
+      - "--innodb-buffer-pool-size=256M"
+    environment:
+      MARIADB_ROOT_HOST: db
+      # MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD-}
+      # MARIADB_RANDOM_ROOT_PASSWORD: 1
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 1
+      MARIADB_USER: db
+      MARIADB_PASSWORD: db
+      MARIADB_DATABASE: db
+      # MARIADB_AUTO_UPGRADE: ${MARIADB_AUTO_UPGRADE-}
+    restart: unless-stopped
+    # logging: *default-logging
+    volumes:
+      - type: bind
+        source: ${DB_DIR_DATA-./data/mysql}
+        target: /var/lib/mysql
+        bind:
+          create_host_path: true
+
+  app:
+    build:
+      context: .
+    environment:
+      <<: *app-env
+    restart: unless-stopped
+    # logging: *default-logging
+    volumes:
+      - ${APP_DIR_DATA-./data}:/app/data
+    depends_on:
+      - db

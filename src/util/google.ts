@@ -66,6 +66,7 @@ async function fetchPage(options: SearchOptions) {
                 headless: true,
                 args: [
                     `--no-sandbox`,
+                    '--disable-setuid-sandbox',
                     `--no-default-browser-check`,
                     `--window-size=1280,800`,
                     `--user-agent=${'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:73.0) Gecko/20100101 Firefox/73.0'}`,

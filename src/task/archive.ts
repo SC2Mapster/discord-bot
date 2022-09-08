@@ -217,7 +217,7 @@ export class ArchiveManager extends Task {
                 if (dchan.type !== 'text') continue;
                 if (this.ignoredChannels.has(dchan.id)) continue;
                 await this.syncChannel(<ds.TextChannel>this.client.channels.cache.get(dchan.id), {
-                    newerThan: new Sugar.Date(Date.now()).addDays(-1).raw,
+                    newerThan: new Sugar.Date(Date.now()).addDays(-(process.env.APP_ARCHIVE_NEWER_THAN_DAYS ?? 1)).raw,
                 });
             }
         }

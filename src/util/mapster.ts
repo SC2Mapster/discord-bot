@@ -1,4 +1,5 @@
 import * as sugar from 'sugar';
+import puppeteer from 'puppeteer';
 import * as mapster from 'sc2mapster-crawler';
 import { CommandoMessage } from 'discord.js-commando';
 import { Message, MessageEmbed, TextChannel } from 'discord.js';
@@ -6,6 +7,28 @@ import * as imgur from 'imgur';
 import * as stringSimilarity from 'string-similarity';
 import { logger } from '../bot';
 import { sanitizeForeignHtml } from './helpers';
+
+export async function initializeBrowser() {
+    if (!mapster.mBrowser) {
+        const pupUserDir = process.env.APP_PUPPETEER_DATA_DIR ?? './puppeteer';
+        // @ts-ignore
+        mapster.mBrowser = await puppeteer.launch({
+            headless: true,
+            // executablePath: 'chromium',
+            userDataDir: pupUserDir,
+            args: [
+                `--no-sandbox`,
+                `--no-default-browser-check`,
+                `--window-size=1280,800`,
+                `--user-agent=${'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:73.0) Gecko/20100101 Firefox/73.0'}`,
+            ],
+            ignoreDefaultArgs: [
+                `--enable-automation`,
+            ],
+            // dumpio: true,
+        });
+    }
+}
 
 let mconn: mapster.MapsterConnection;
 export async function getActiveConnection() {

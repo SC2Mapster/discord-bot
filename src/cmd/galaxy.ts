@@ -65,7 +65,8 @@ export default class GalaxyCommand extends MapsterCommand {
 
     protected async loadup() {
         if (!this.store) {
-            this.store = await prepareStore(path.join('sc2-data-trigger', 'mods', 'core.sc2mod'), [path.join('sc2-data-trigger')]);
+            const s2data = path.join('sc2-gamedata');
+            this.store = await prepareStore(path.join(s2data, 'mods', 'core.sc2mod'), [s2data]);
             for (const sourceFile of this.store.documents.values()) {
                 for (const sym of sourceFile.symbol.members.values()) {
                     this.symbols.set(sym.escapedName, sym);

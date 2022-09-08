@@ -116,6 +116,10 @@ function prepareBnetEmbed(entry: BnetForumSubmission, categoryName: string) {
             icon_url: 'https://i.imgur.com/PZKEWs8.png',
         },
     });
+    // embed.author.icon_url: Scheme "/en/sc2/plugins/discourse-blizzard-plugin/images/avatars/sc2/default.png" is not supported. Scheme must be one of ('http', 'https').
+    if (!pembed.author.iconURL.match(/^https?:\/\//)) {
+        delete pembed.author.iconURL;
+    }
     return pembed;
 }
 

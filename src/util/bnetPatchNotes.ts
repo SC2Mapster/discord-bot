@@ -94,6 +94,14 @@ export async function genPatchNotesMsg(pnote: PatchNoteEntry) {
     fs.writeFileSync(fname, buff);
 
     const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+            `--no-sandbox`,
+            '--disable-setuid-sandbox',
+            `--no-default-browser-check`,
+            `--window-size=1280,800`,
+            `--user-agent=${'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:73.0) Gecko/20100101 Firefox/73.0'}`,
+        ],
     });
     const bpage = await browser.newPage();
     await bpage.goto(`file://${fname}`);

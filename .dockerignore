@@ -1,0 +1,9 @@
+/.git
+/.gitignore
+/.vscode
+/data
+/lib
+/node_modules
+/.env*
+/docker-compose*.yml
+/Dockerfile

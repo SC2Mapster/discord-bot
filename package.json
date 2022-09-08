@@ -15,10 +15,10 @@
     "url": "https://github.com/SC2Mapster/discord-bot.git"
   },
   "scripts": {
-    "clean": "rm -r lib/*",
+    "clean": "rm -rf lib/*",
     "start": "node lib/src/start.js",
-    "build": "rm -r lib/* && tsc -p .",
-    "build:watch": "rm -r lib/* && tsc -p . --w",
+    "build": "rm -rf lib/* && tsc -p .",
+    "build:watch": "rm -rf lib/* && tsc -p . --w",
     "test": "mocha --opts mocha.opts",
     "test:watch": "mocha --opts mocha.opts --watch"
   },
@@ -39,8 +39,8 @@
     "request": "^2.88.0",
     "request-promise-native": "^1.0.8",
     "sanitize-html": "^1.22.0",
-    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#38482f919eda08e47a81fd1febeda5f5688a6bf8",
-    "sqlite": "^2.9.3",
+    "sc2mapster-crawler": "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#9cc9f59bcf99b514d30da282f336791438f9523b",
+    "sqlite": "^3.0.6",
     "string-similarity": "^1.2.0",
     "sugar": "^2.0.6",
     "turndown": "^5.0.3",

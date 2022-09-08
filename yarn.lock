@@ -2607,9 +2607,9 @@ sax@>=0.6.0, sax@^1.2.4:
   resolved "https://registry.yarnpkg.com/sax/-/sax-1.2.4.tgz#2816234e2378bddc4e5354fab5caa895df7100d9"
   integrity sha512-NqVDv9TpANUjFm0N8uM5GxL36UgKi9/atZw+x7YFnQ8ckwFGKrl4xX4yWtrey3UJm5nP1kUbnYgLopqWNSRhWw==
 
-"sc2mapster-crawler@git+https://github.com/SC2Mapster/sc2mapster-crawler.git#38482f919eda08e47a81fd1febeda5f5688a6bf8":
+"sc2mapster-crawler@git+https://github.com/SC2Mapster/sc2mapster-crawler.git#9cc9f59bcf99b514d30da282f336791438f9523b":
   version "0.1.4"
-  resolved "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#38482f919eda08e47a81fd1febeda5f5688a6bf8"
+  resolved "git+https://github.com/SC2Mapster/sc2mapster-crawler.git#9cc9f59bcf99b514d30da282f336791438f9523b"
   dependencies:
     cheerio "^1.0.0-rc.3"
     puppeteer "^2.0.0"
@@ -2700,6 +2700,11 @@ sprintf-js@~1.0.2:
   resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
   integrity sha1-BOaSb2YolTVPPdAVIDYzuFcpfiw=
 
+sql-template-strings@^2.2.2:
+  version "2.2.2"
+  resolved "https://registry.yarnpkg.com/sql-template-strings/-/sql-template-strings-2.2.2.tgz#3f11508a25addfce217a3042a9d300c3193b96ff"
+  integrity sha512-UXhXR2869FQaD+GMly8jAMCRZ94nU5KcrFetZfWEMd+LVVG6y0ExgHAhatEcKZ/wk8YcKPdi+hiD2wm75lq3/Q==
+
 sqlite3@^4.0.0:
   version "4.1.1"
   resolved "https://registry.yarnpkg.com/sqlite3/-/sqlite3-4.1.1.tgz#539a42e476640796578e22d589b3283c28055242"
@@ -2709,12 +2714,14 @@ sqlite3@^4.0.0:
     node-pre-gyp "^0.11.0"
     request "^2.87.0"
 
-sqlite@^2.9.3:
-  version "2.9.3"
-  resolved "https://registry.yarnpkg.com/sqlite/-/sqlite-2.9.3.tgz#c2634c32c2ca58d5519a9a66549e032939d31ff0"
-  integrity sha512-2LJxdgtXsif9xR2D8KnM8Ki3g0dmOktba1B/6TanYCKx697J0sKfw+i28yRjtjPz5O/uzbEa1m1RXXgR2p9G0Q==
+sqlite@^3.0.6:
+  version "3.0.6"
+  resolved "https://registry.yarnpkg.com/sqlite/-/sqlite-3.0.6.tgz#82d15bb45a1ca2a7ac8f7a1079f19dc9abe2ee75"
+  integrity sha512-5SW7HcN+s3TyqpsxOujXhQDCRSCgsxdiU0peT/Y9CT5T0rAsGLwtpXcMyQ7OzOPQ4YUZ5XiGlrwuuQbszr2xtw==
   dependencies:
     sqlite3 "^4.0.0"
+  optionalDependencies:
+    sql-template-strings "^2.2.2"
 
 sqlstring@2.3.1:
   version "2.3.1"

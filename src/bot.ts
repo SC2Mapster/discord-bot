@@ -18,8 +18,10 @@ import { MapsterCommonTask } from './task/mcommon';
 import { PasteTask } from './task/paste';
 import { ForumFeedTask } from './task/forumFeed';
 import { Task } from './registry';
+import { initializeBrowser } from './util/mapster';
 
-if (!fs.existsSync('logs')) fs.mkdirSync('logs');
+if (!fs.existsSync('data/logs')) fs.mkdirSync('data/logs');
+
 export const logger = winston.createLogger({
     level: 'debug',
     format: winston.format.combine(
@@ -50,13 +52,13 @@ export const logger = winston.createLogger({
     ),
     transports: [
         new winston.transports.Console({
-            level: process.env.LOG_LEVEL ?? (process.env.ENV !== 'dev' ? 'error' : 'debug'),
+            level: process.env.LOG_LEVEL ?? (process.env.APP_ENV !== 'dev' ? 'error' : 'debug'),
             handleExceptions: true,
         }),
         new DailyRotateFile({
             filename: '%DATE%.log',
             datePattern: 'YYYY-MM-DD',
-            dirname: 'logs',
+            dirname: 'data/logs',
             json: false,
         }),
     ],
@@ -171,20 +173,22 @@ export class MapsterBot extends CommandoClient {
 
         this.setProvider(new Promise(async (resolve, reject) => {
             this.db = await orm.createConnection();
-            resolve(new SQLiteProvider(await sqlite.open('settings.db')));
+            resolve(new SQLiteProvider(await sqlite.open('data/settings.db')));
         })).then(async () => {
             await this.initialized();
         });
     }
 
     protected async initialized() {
+        await initializeBrowser();
+
         const availableTasks = [
             NotablePinTask,
             MapsterCommonTask,
             PasteTask,
-            ...(process.env.ENV !== 'dev' ? [
-                MapsterRecentTask,
-                ForumFeedTask,
+            MapsterRecentTask,
+            ForumFeedTask,
+            ...(process.env.APP_ENV !== 'dev' ? [
                 BnetPatchNotifierTask,
                 ArchiveManager,
             ] : []),
